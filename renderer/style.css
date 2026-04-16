@@ -1,0 +1,544 @@
+/* ═══════════════════════════════════════════════════════════
+   Soundscape — Dark Theme
+   ═══════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #1a1a1e;
+  --surface:     #26262c;
+  --surface2:    #2f2f38;
+  --border:      #3a3a45;
+  --accent:      #e07b39;
+  --accent-dim:  #7a4020;
+  --mute-on:     #e03030;
+  --mute-off:    #7a1010;
+  --solo-on:     #e0e000;
+  --solo-off:    #6a6a00;
+  --link-on:     #1496ff;
+  --link-off:    #0820cc;
+  --text:        #d0d0d8;
+  --text-dim:    #888890;
+  --fader-thumb: #e07b39;
+  --radius:      6px;
+  --font:        'Segoe UI', system-ui, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  user-select: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── HEADER ──────────────────────────────────────────────────── */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 12px;
+  gap: 12px;
+  flex-shrink: 0;
+  -webkit-app-region: drag; /* drag window */
+}
+
+#header * { -webkit-app-region: no-drag; }
+
+.header-left, .header-right, .header-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-center { flex: 1; justify-content: center; }
+
+.app-logo {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+
+.midi-status {
+  font-size: 11px;
+  color: var(--text-dim);
+  padding: 2px 8px;
+  background: var(--bg);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.ss-number { color: var(--text-dim); font-size: 12px; min-width: 40px; text-align: center; }
+
+.vol-label { color: var(--text-dim); }
+
+#soundscapeName {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 3px 8px;
+  width: 200px;
+  font-size: 13px;
+  text-align: center;
+}
+#soundscapeName:focus { outline: 1px solid var(--accent); }
+
+#globalVolume { width: 80px; }
+
+/* Generic button */
+button {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.15s;
+}
+button:hover { background: #3a3a45; }
+
+.btn-play {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+  padding: 4px 16px;
+  font-size: 16px;
+}
+.btn-play:hover { background: var(--accent); color: #fff; }
+.btn-danger { border-color: var(--mute-on); color: var(--mute-on); }
+.btn-danger:hover { background: var(--mute-on); color: #fff; }
+
+/* ── MAIN AREA ────────────────────────────────────────────────── */
+#main-area {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  overflow: hidden;
+  gap: 1px;
+  background: var(--border);
+}
+
+/* ── MIXER SECTION ────────────────────────────────────────────── */
+#mixer-section {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+#channel-strip-row {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  padding: 8px 6px;
+  gap: 4px;
+}
+
+/* ── CHANNEL STRIP ────────────────────────────────────────────── */
+.channel-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 4px;
+  width: 56px;
+  gap: 4px;
+  transition: border-color 0.15s;
+}
+.channel-strip.drag-over { border-color: var(--accent); }
+
+.master-strip { background: var(--surface2); width: 56px; }
+
+.ch-top {
+  display: flex;
+  gap: 3px;
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-config, .btn-fx {
+  padding: 2px 4px;
+  font-size: 10px;
+  background: var(--bg);
+  flex: 1;
+}
+
+.ch-name {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  width: 100%;
+  font-size: 9px;
+  padding: 2px 3px;
+  text-align: center;
+  min-width: 0;
+}
+.ch-name:focus { outline: 1px solid var(--accent); }
+
+.ch-buttons {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+}
+
+.btn-mute, .btn-solo, .btn-link {
+  flex: 1;
+  padding: 2px 0;
+  font-size: 10px;
+  font-weight: 700;
+  border: none;
+  border-radius: 3px;
+}
+.btn-mute { background-color: var(--mute-off); color: #fff; }
+.btn-solo { background-color: var(--solo-off); color: #fff; }
+.btn-link { background-color: var(--link-off); color: #fff; }
+
+/* ── FADER ─────────────────────────────────────────────────────── */
+.ch-fader-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+}
+
+input[type="range"][orient="vertical"],
+input[type="range"].ch-fader {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: slider-vertical;
+  -webkit-appearance: slider-vertical;
+  width: 18px;
+  height: 120px;
+  cursor: pointer;
+  accent-color: var(--fader-thumb);
+}
+
+.ch-vol-number-wrap { width: 100%; }
+.ch-vol-number {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 3px;
+  font-size: 10px;
+  padding: 1px 2px;
+  text-align: center;
+}
+
+.ch-pan {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ch-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+.btn-play-ch {
+  width: 100%;
+  padding: 3px 0;
+  font-size: 12px;
+  background: var(--surface2);
+}
+
+.ch-nav {
+  display: flex;
+  gap: 2px;
+  width: 100%;
+}
+
+.btn-nav-ch {
+  flex: 1;
+  padding: 2px 0;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--surface2);
+  line-height: 1;
+}
+
+.master-label-top {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+
+/* ── SOUNDBOARD SECTION ───────────────────────────────────────── */
+#soundboard-section {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding: 8px;
+  gap: 8px;
+  overflow: hidden;
+}
+
+#soundboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.sb-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+
+.sb-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sb-controls label { color: var(--text-dim); font-size: 11px; }
+.sb-controls input[type="range"] { width: 90px; accent-color: var(--accent); }
+
+.btn-stop-sb { color: var(--mute-on); border-color: var(--mute-on); }
+.btn-stop-sb:hover { background: var(--mute-on); color: #fff; }
+
+#soundboard-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 6px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sb-cell {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  transition: border-color 0.15s, background 0.15s;
+  padding: 4px;
+}
+.sb-cell:hover { background: var(--surface2); border-color: var(--accent); }
+.sb-cell.drag-over { border-color: var(--accent); background: var(--accent-dim); }
+
+.sb-img-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  overflow: hidden;
+}
+.sb-img-wrap img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  opacity: 0.8;
+}
+.sb-img-wrap img[src=""] { display: none; }
+
+.sb-label {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+/* Flash animation for MIDI / soundboard trigger */
+@keyframes sb-flash-anim {
+  0%   { background: var(--accent); }
+  100% { background: var(--surface); }
+}
+.sb-flash { animation: sb-flash-anim 0.2s ease-out; }
+
+/* ── RANGE INPUT GLOBAL ───────────────────────────────────────── */
+input[type="range"] {
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+input[type="number"]::-webkit-inner-spin-button { opacity: 0.4; }
+input[type="number"] { -moz-appearance: textfield; }
+
+/* scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── FX PANEL ─────────────────────────────────────────────────── */
+.fx-panel {
+  position: fixed;
+  top: 80px;
+  left: 200px;
+  width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  z-index: 1000;
+  font-size: 12px;
+}
+
+.fx-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.fx-close {
+  padding: 2px 6px;
+  font-size: 12px;
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.fx-close:hover { color: var(--mute-on); background: none; }
+
+.fx-section {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.fx-section:last-child { border-bottom: none; }
+
+.fx-section-title {
+  font-weight: 600;
+  color: var(--text-dim);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.fx-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.fx-row label {
+  color: var(--text-dim);
+  font-size: 11px;
+  min-width: 48px;
+}
+
+.fx-row input[type="range"] { flex: 1; min-width: 60px; accent-color: var(--accent); }
+.fx-row span { min-width: 55px; color: var(--text-dim); font-size: 11px; }
+
+/* ── CONFIG PANEL (channel / soundboard) ──────────────────────── */
+.cfg-panel {
+  width: 440px;
+  top: 80px;
+  left: 260px;
+}
+
+.cfg-src-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 2px 0;
+}
+
+.cfg-label {
+  color: var(--text-dim);
+  font-size: 11px;
+  min-width: 64px;
+}
+
+.cfg-select {
+  flex: 1;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.cfg-select:focus { outline: 1px solid var(--accent); }
+
+.cfg-num {
+  width: 62px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 12px;
+  text-align: right;
+}
+.cfg-num:focus { outline: 1px solid var(--accent); }
+
+.cfg-text {
+  flex: 1;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+}
+.cfg-text:focus { outline: 1px solid var(--accent); }
+
+.fx-row-unit {
+  color: var(--text-dim);
+  font-size: 11px;
+  min-width: 14px;
+}
+
+.fx-row-val {
+  min-width: 52px;
+  color: var(--text-dim);
+  font-size: 11px;
+  text-align: right;
+}
+
+.freq-canvas {
+  display: block;
+  width: 100%;
+  height: 80px;
+  background: var(--bg);
+  border-radius: 4px;
+  margin-top: 6px;
+  border: 1px solid var(--border);
+}

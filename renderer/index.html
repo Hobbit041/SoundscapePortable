@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soundscape</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══ HEADER ═══════════════════════════════════════════════════════════ -->
+  <header id="header">
+    <div class="header-left">
+      <span class="app-logo"><i class="fas fa-music"></i> Soundscape</span>
+      <span id="midiStatus" class="midi-status">MIDI: scanning…</span>
+    </div>
+    <div class="header-center">
+      <button id="prevSoundscape" title="Previous soundscape"><i class="fas fa-chevron-left"></i></button>
+      <input id="soundscapeName" type="text" placeholder="Soundscape name" spellcheck="false">
+      <button id="nextSoundscape" title="Next soundscape"><i class="fas fa-chevron-right"></i></button>
+      <span id="soundscapeNumber" class="ss-number">1 / 1</span>
+      <button id="addSoundscape"  title="Add soundscape"><i class="fas fa-plus"></i></button>
+      <button id="delSoundscape"  title="Delete soundscape" class="btn-danger"><i class="fas fa-trash"></i></button>
+    </div>
+    <div class="header-right">
+      <label class="vol-label"><i class="fas fa-volume-low"></i></label>
+      <input id="globalVolume" type="range" min="0" max="100" step="1" value="50" title="Global output volume">
+      <button id="btnImport" title="Import .soundscapeData"><i class="fas fa-file-import"></i></button>
+      <button id="btnExport" title="Export .soundscapeData"><i class="fas fa-file-export"></i></button>
+      <button id="playMix" class="btn-play"><i class="fas fa-play"></i></button>
+    </div>
+  </header>
+
+  <!-- ═══ MAIN AREA ════════════════════════════════════════════════════════ -->
+  <main id="main-area">
+
+    <!-- ── MIXER SECTION ─────────────────────────────────────────────── -->
+    <section id="mixer-section">
+
+      <!-- 8 channel strips + master -->
+      <div id="channel-strip-row">
+
+        <!-- Channel strips 0-7 -->
+        <div class="channel-strip" id="box-0" data-channel="0">
+          <div class="ch-top">
+            <button class="btn-config" id="config-0" title="Load audio file">
+              <i class="fas fa-folder-open"></i>
+            </button>
+            <button class="btn-fx" id="fx-0" title="FX">FX</button>
+          </div>
+          <input class="ch-name" id="channelName-0" type="text" placeholder="Channel 1" spellcheck="false">
+          <div class="ch-buttons">
+            <button class="btn-mute" id="mute-0">M</button>
+            <button class="btn-solo" id="solo-0">S</button>
+            <button class="btn-link" id="link-0">L</button>
+          </div>
+          <div class="ch-fader-wrap">
+            <input class="ch-fader" id="volumeSlider-0" type="range" min="0" max="125" step="1" value="100" orient="vertical">
+          </div>
+          <div class="ch-vol-number-wrap">
+            <input class="ch-vol-number" id="volumeNumber-0" type="number" min="0" max="125" value="100">
+          </div>
+          <input class="ch-pan" id="panSlider-0" type="range" min="-25" max="25" step="1" value="0" title="Pan">
+          <div class="ch-label">1</div>
+          <button class="btn-play-ch" id="playSound-0"><i class="fas fa-play"></i></button>
+          <div class="ch-nav">
+            <button class="btn-nav-ch" id="prevTrack-0" title="Предыдущий трек">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-0" title="Следующий трек">›</button>
+          </div>
+        </div>
+
+        <div class="channel-strip" id="box-1" data-channel="1">
+          <div class="ch-top">
+            <button class="btn-config" id="config-1" title="Load audio file"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-fx" id="fx-1">FX</button>
+          </div>
+          <input class="ch-name" id="channelName-1" type="text" placeholder="Channel 2" spellcheck="false">
+          <div class="ch-buttons">
+            <button class="btn-mute" id="mute-1">M</button>
+            <button class="btn-solo" id="solo-1">S</button>
+            <button class="btn-link" id="link-1">L</button>
+          </div>
+          <div class="ch-fader-wrap">
+            <input class="ch-fader" id="volumeSlider-1" type="range" min="0" max="125" step="1" value="100" orient="vertical">
+          </div>
+          <div class="ch-vol-number-wrap">
+            <input class="ch-vol-number" id="volumeNumber-1" type="number" min="0" max="125" value="100">
+          </div>
+          <input class="ch-pan" id="panSlider-1" type="range" min="-25" max="25" step="1" value="0">
+          <div class="ch-label">2</div>
+          <button class="btn-play-ch" id="playSound-1"><i class="fas fa-play"></i></button>
+          <div class="ch-nav">
+            <button class="btn-nav-ch" id="prevTrack-1" title="Предыдущий трек">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-1" title="Следующий трек">›</button>
+          </div>
+        </div>
+
+        <div class="channel-strip" id="box-2" data-channel="2">
+          <div class="ch-top">
+            <button class="btn-config" id="config-2"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-fx" id="fx-2">FX</button>
+          </div>
+          <input class="ch-name" id="channelName-2" type="text" placeholder="Channel 3" spellcheck="false">
+          <div class="ch-buttons">
+            <button class="btn-mute" id="mute-2">M</button>
+            <button class="btn-solo" id="solo-2">S</button>
+            <button class="btn-link" id="link-2">L</button>
+          </div>
+          <div class="ch-fader-wrap">
+            <input class="ch-fader" id="volumeSlider-2" type="range" min="0" max="125" step="1" value="100" orient="vertical">
+          </div>
+          <div class="ch-vol-number-wrap">
+            <input class="ch-vol-number" id="volumeNumber-2" type="number" min="0" max="125" value="100">
+          </div>
+          <input class="ch-pan" id="panSlider-2" type="range" min="-25" max="25" step="1" value="0">
+          <div class="ch-label">3</div>
+          <button class="btn-play-ch" id="playSound-2"><i class="fas fa-play"></i></button>
+          <div class="ch-nav">
+            <button class="btn-nav-ch" id="prevTrack-2" title="Предыдущий трек">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-2" title="Следующий трек">›</button>
+          </div>
+        </div>
+
+        <div class="channel-strip" id="box-3" data-channel="3">
+          <div class="ch-top">
+            <button class="btn-config" id="config-3"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-fx" id="fx-3">FX</button>
+          </div>
+          <input class="ch-name" id="channelName-3" type="text" placeholder="Channel 4" spellcheck="false">
+          <div class="ch-buttons">
+            <button class="btn-mute" id="mute-3">M</button>
+            <button class="btn-solo" id="solo-3">S</button>
+            <button class="btn-link" id="link-3">L</button>
+          </div>
+          <div class="ch-fader-wrap">
+            <input class="ch-fader" id="volumeSlider-3" type="range" min="0" max="125" step="1" value="100" orient="vertical">
+          </div>
+          <div class="ch-vol-number-wrap">
+            <input class="ch-vol-number" id="volumeNumber-3" type="number" min="0" max="125" value="100">
+          </div>
+          <input class="ch-pan" id="panSlider-3" type="range" min="-25" max="25" step="1" value="0">
+          <div class="ch-label">4</div>
+          <button class="btn-play-ch" id="playSound-3"><i class="fas fa-play"></i></button>
+          <div class="ch-nav">
+            <button class="btn-nav-ch" id="prevTrack-3" title="Предыдущий трек">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-3" title="Следующий трек">›</button>
+          </div>
+        </div>
+
+        <div class="channel-strip" id="box-4" data-channel="4">
+          <div class="ch-top">
+            <button class="btn-config" id="config-4"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-fx" id="fx-4">FX</button>
+          </div>
+          <input class="ch-name" id="channelName-4" type="text" placeholder="Channel 5" spellcheck="false">
+          <div class="ch-buttons">
+            <button class="btn-mute" id="mute-4">M</button>
+            <button class="btn-solo" id="solo-4">S</button>
+            <button class="btn-link" id="link-4">L</button>
+          </div>
+          <div class="ch-fader-wrap">
+            <input class="ch-fader" id="volumeSlider-4" type="range" min="0" max="125" step="1" value="100" orient="vertical">
+          </div>
+          <div class="ch-vol-number-wrap">
+            <input class="ch-vol-number" id="volumeNumber-4" type="number" min="0" max="125" value="100">
+          </div>
+          <input class="ch-pan" id="panSlider-4" type="range" min="-25" max="25" step="1" value="0">
+          <div class="ch-label">5</div>
+          <button class="btn-play-ch" id="playSound-4"><i class="fas fa-play"></i></button>
+          <div class="ch-nav">
+            <button class="btn-nav-ch" id="prevTrack-4" title="Предыдущий трек">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-4" title="Следующий трек">›</button>
+          </div>
+        </div>
+
+        <div class="channel-strip" id="box-5" data-channel="5">
+          <div class="ch-top">
+            <button class="btn-config" id="config-5"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-fx" id="fx-5">FX</button>
+          </div>
+          <input class="ch-name" id="channelName-5" type="text" placeholder="Channel 6" spellcheck="false">
+          <div class="ch-buttons">
+            <button class="btn-mute" id="mute-5">M</button>
+            <button class="btn-solo" id="solo-5">S</button>
+            <button class="btn-link" id="link-5">L</button>
+          </div>
+          <div class="ch-fader-wrap">
+            <input class="ch-fader" id="volumeSlider-5" type="range" min="0" max="125" step="1" value="100" orient="vertical">
+          </div>
+          <div class="ch-vol-number-wrap">
+            <input class="ch-vol-number" id="volumeNumber-5" type="number" min="0" max="125" value="100">
+          </div>
+          <input class="ch-pan" id="panSlider-5" type="range" min="-25" max="25" step="1" value="0">
+          <div class="ch-label">6</div>
+          <button class="btn-play-ch" id="playSound-5"><i class="fas fa-play"></i></button>
+          <div class="ch-nav">
+            <button class="btn-nav-ch" id="prevTrack-5" title="Предыдущий трек">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-5" title="Следующий трек">›</button>
+          </div>
+        </div>
+
+        <div class="channel-strip" id="box-6" data-channel="6">
+          <div class="ch-top">
+            <button class="btn-config" id="config-6"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-fx" id="fx-6">FX</button>
+          </div>
+          <input class="ch-name" id="channelName-6" type="text" placeholder="Channel 7" spellcheck="false">
+          <div class="ch-buttons">
+            <button class="btn-mute" id="mute-6">M</button>
+            <button class="btn-solo" id="solo-6">S</button>
+            <button class="btn-link" id="link-6">L</button>
+          </div>
+          <div class="ch-fader-wrap">
+            <input class="ch-fader" id="volumeSlider-6" type="range" min="0" max="125" step="1" value="100" orient="vertical">
+          </div>
+          <div class="ch-vol-number-wrap">
+            <input class="ch-vol-number" id="volumeNumber-6" type="number" min="0" max="125" value="100">
+          </div>
+          <input class="ch-pan" id="panSlider-6" type="range" min="-25" max="25" step="1" value="0">
+          <div class="ch-label">7</div>
+          <button class="btn-play-ch" id="playSound-6"><i class="fas fa-play"></i></button>
+          <div class="ch-nav">
+            <button class="btn-nav-ch" id="prevTrack-6" title="Предыдущий трек">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-6" title="Следующий трек">›</button>
+          </div>
+        </div>
+
+        <div class="channel-strip" id="box-7" data-channel="7">
+          <div class="ch-top">
+            <button class="btn-config" id="config-7"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-fx" id="fx-7">FX</button>
+          </div>
+          <input class="ch-name" id="channelName-7" type="text" placeholder="Channel 8" spellcheck="false">
+          <div class="ch-buttons">
+            <button class="btn-mute" id="mute-7">M</button>
+            <button class="btn-solo" id="solo-7">S</button>
+            <button class="btn-link" id="link-7">L</button>
+          </div>
+          <div class="ch-fader-wrap">
+            <input class="ch-fader" id="volumeSlider-7" type="range" min="0" max="125" step="1" value="100" orient="vertical">
+          </div>
+          <div class="ch-vol-number-wrap">
+            <input class="ch-vol-number" id="volumeNumber-7" type="number" min="0" max="125" value="100">
+          </div>
+          <input class="ch-pan" id="panSlider-7" type="range" min="-25" max="25" step="1" value="0">
+          <div class="ch-label">8</div>
+          <button class="btn-play-ch" id="playSound-7"><i class="fas fa-play"></i></button>
+          <div class="ch-nav">
+            <button class="btn-nav-ch" id="prevTrack-7" title="Предыдущий трек">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-7" title="Следующий трек">›</button>
+          </div>
+        </div>
+
+        <!-- MASTER strip -->
+        <div class="channel-strip master-strip" id="box-master">
+          <div class="ch-top" style="justify-content:center">
+            <span class="master-label-top">MASTER</span>
+          </div>
+          <div class="ch-buttons" style="justify-content:center; margin-top:4px">
+            <button class="btn-mute" id="mute-master">M</button>
+          </div>
+          <div class="ch-fader-wrap">
+            <input class="ch-fader" id="volumeSlider-master" type="range" min="0" max="125" step="1" value="100" orient="vertical">
+          </div>
+          <div class="ch-vol-number-wrap">
+            <input class="ch-vol-number" id="volumeNumber-master" type="number" min="0" max="125" value="100">
+          </div>
+          <div class="ch-label" style="font-size:9px; letter-spacing:1px">MASTER</div>
+        </div>
+
+      </div><!-- /channel-strip-row -->
+    </section>
+
+    <!-- ── SOUNDBOARD SECTION ─────────────────────────────────────────── -->
+    <section id="soundboard-section">
+      <div id="soundboard-header">
+        <span class="sb-title">Soundboard</span>
+        <div class="sb-controls">
+          <label>Vol</label>
+          <input id="sbVolume" type="range" min="0" max="125" step="1" value="50">
+          <button id="sbStopAll" class="btn-stop-sb" title="Остановить все звуки саундборда">
+            <i class="fas fa-stop"></i> Остановить звуки
+          </button>
+        </div>
+      </div>
+
+      <!-- 5×5 grid of soundboard buttons -->
+      <div id="soundboard-grid">
+        <!-- Row 1 -->
+        <div class="sb-cell" id="sbButton-0">
+          <div class="sb-img-wrap"><img id="sbImg-0" src="" alt=""></div>
+          <div class="sb-label" id="sbLabel-0"></div>
+        </div>
+        <div class="sb-cell" id="sbButton-1">
+          <div class="sb-img-wrap"><img id="sbImg-1" src="" alt=""></div>
+          <div class="sb-label" id="sbLabel-1"></div>
+        </div>
+        <div class="sb-cell" id="sbButton-2">
+          <div class="sb-img-wrap"><img id="sbImg-2" src="" alt=""></div>
+          <div class="sb-label" id="sbLabel-2"></div>
+        </div>
+        <div class="sb-cell" id="sbButton-3">
+          <div class="sb-img-wrap"><img id="sbImg-3" src="" alt=""></div>
+          <div class="sb-label" id="sbLabel-3"></div>
+        </div>
+        <div class="sb-cell" id="sbButton-4">
+          <div class="sb-img-wrap"><img id="sbImg-4" src="" alt=""></div>
+          <div class="sb-label" id="sbLabel-4"></div>
+        </div>
+        <!-- Row 2 -->
+        <div class="sb-cell" id="sbButton-5"><div class="sb-img-wrap"><img id="sbImg-5" src="" alt=""></div><div class="sb-label" id="sbLabel-5"></div></div>
+        <div class="sb-cell" id="sbButton-6"><div class="sb-img-wrap"><img id="sbImg-6" src="" alt=""></div><div class="sb-label" id="sbLabel-6"></div></div>
+        <div class="sb-cell" id="sbButton-7"><div class="sb-img-wrap"><img id="sbImg-7" src="" alt=""></div><div class="sb-label" id="sbLabel-7"></div></div>
+        <div class="sb-cell" id="sbButton-8"><div class="sb-img-wrap"><img id="sbImg-8" src="" alt=""></div><div class="sb-label" id="sbLabel-8"></div></div>
+        <div class="sb-cell" id="sbButton-9"><div class="sb-img-wrap"><img id="sbImg-9" src="" alt=""></div><div class="sb-label" id="sbLabel-9"></div></div>
+        <!-- Row 3 -->
+        <div class="sb-cell" id="sbButton-10"><div class="sb-img-wrap"><img id="sbImg-10" src="" alt=""></div><div class="sb-label" id="sbLabel-10"></div></div>
+        <div class="sb-cell" id="sbButton-11"><div class="sb-img-wrap"><img id="sbImg-11" src="" alt=""></div><div class="sb-label" id="sbLabel-11"></div></div>
+        <div class="sb-cell" id="sbButton-12"><div class="sb-img-wrap"><img id="sbImg-12" src="" alt=""></div><div class="sb-label" id="sbLabel-12"></div></div>
+        <div class="sb-cell" id="sbButton-13"><div class="sb-img-wrap"><img id="sbImg-13" src="" alt=""></div><div class="sb-label" id="sbLabel-13"></div></div>
+        <div class="sb-cell" id="sbButton-14"><div class="sb-img-wrap"><img id="sbImg-14" src="" alt=""></div><div class="sb-label" id="sbLabel-14"></div></div>
+        <!-- Row 4 -->
+        <div class="sb-cell" id="sbButton-15"><div class="sb-img-wrap"><img id="sbImg-15" src="" alt=""></div><div class="sb-label" id="sbLabel-15"></div></div>
+        <div class="sb-cell" id="sbButton-16"><div class="sb-img-wrap"><img id="sbImg-16" src="" alt=""></div><div class="sb-label" id="sbLabel-16"></div></div>
+        <div class="sb-cell" id="sbButton-17"><div class="sb-img-wrap"><img id="sbImg-17" src="" alt=""></div><div class="sb-label" id="sbLabel-17"></div></div>
+        <div class="sb-cell" id="sbButton-18"><div class="sb-img-wrap"><img id="sbImg-18" src="" alt=""></div><div class="sb-label" id="sbLabel-18"></div></div>
+        <div class="sb-cell" id="sbButton-19"><div class="sb-img-wrap"><img id="sbImg-19" src="" alt=""></div><div class="sb-label" id="sbLabel-19"></div></div>
+        <!-- Row 5 -->
+        <div class="sb-cell" id="sbButton-20"><div class="sb-img-wrap"><img id="sbImg-20" src="" alt=""></div><div class="sb-label" id="sbLabel-20"></div></div>
+        <div class="sb-cell" id="sbButton-21"><div class="sb-img-wrap"><img id="sbImg-21" src="" alt=""></div><div class="sb-label" id="sbLabel-21"></div></div>
+        <div class="sb-cell" id="sbButton-22"><div class="sb-img-wrap"><img id="sbImg-22" src="" alt=""></div><div class="sb-label" id="sbLabel-22"></div></div>
+        <div class="sb-cell" id="sbButton-23"><div class="sb-img-wrap"><img id="sbImg-23" src="" alt=""></div><div class="sb-label" id="sbLabel-23"></div></div>
+        <div class="sb-cell" id="sbButton-24"><div class="sb-img-wrap"><img id="sbImg-24" src="" alt=""></div><div class="sb-label" id="sbLabel-24"></div></div>
+      </div><!-- /soundboard-grid -->
+
+    </section>
+
+  </main><!-- /main-area -->
+
+</div><!-- /app -->
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

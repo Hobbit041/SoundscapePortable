@@ -1,0 +1,36 @@
+/**
+ * storage.js
+ * Replaces game.settings from Foundry VTT.
+ * Uses Electron's electron-store (via IPC) for persistent storage.
+ */
+
+export const Storage = {
+  async get(key, defaultValue = undefined) {
+    return await window.api.store.get(key, defaultValue);
+  },
+
+  async set(key, value) {
+    await window.api.store.set(key, value);
+  },
+
+  async delete(key) {
+    await window.api.store.delete(key);
+  },
+
+  // ─── Soundscapes ────────────────────────────────────────────────────────
+  async getSoundscapes() {
+    return await this.get('soundscapes', []);
+  },
+
+  async setSoundscapes(data) {
+    await this.set('soundscapes', data);
+  },
+
+  async getVolume() {
+    return await this.get('volume', 0.5);
+  },
+
+  async setVolume(v) {
+    await this.set('volume', v);
+  }
+};
