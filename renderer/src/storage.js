@@ -32,5 +32,14 @@ export const Storage = {
 
   async setVolume(v) {
     await this.set('volume', v);
+  },
+
+  // ─── MIDI mappings ───────────────────────────────────────────────────────
+  async getMidiMappings() {
+    return await this.get('midiMappings', {});
+  },
+
+  async setMidiMappings(data) {
+    await this.set('midiMappings', data);
   }
 };

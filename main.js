@@ -1,20 +1,24 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const Store = require('electron-store');
 
 const store = new Store();
 
+// Remove default application menu
+Menu.setApplicationMenu(null);
+
 let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 720,
-    minWidth: 480,
+    width: 1200,
+    height: 700,
+    minWidth: 1000,
     minHeight: 600,
-    backgroundColor: '#1a1a1a',
-    title: 'Soundscape',
+    backgroundColor: '#1a1a1e',
+    title: 'Soundscapes',
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -25,8 +29,6 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
-
-  mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(() => {
@@ -39,6 +41,16 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
+
+// ─── Window controls IPC ─────────────────────────────────────────────────────
+
+ipcMain.handle('window-minimize',   () => mainWindow?.minimize());
+ipcMain.handle('window-maximize',   () => {
+  if (mainWindow?.isMaximized()) mainWindow.unmaximize();
+  else mainWindow?.maximize();
+});
+ipcMain.handle('window-close',      () => mainWindow?.close());
+ipcMain.handle('window-is-maximized', () => mainWindow?.isMaximized() ?? false);
 
 // ─── Storage IPC ─────────────────────────────────────────────────────────────
 

@@ -4,7 +4,8 @@
  * Replaces soundConfig.js (Foundry FormApplication).
  * Covers: source, repeat, playback rate, timing.
  */
-import { Storage } from './storage.js';
+import { Storage }        from './storage.js';
+import { PlaylistDialog } from './playlistDialog.js';
 
 export class ChannelConfigDialog {
   constructor(channel, mixer, channelNr) {
@@ -30,71 +31,74 @@ export class ChannelConfigDialog {
       : { repeat: s.repeat ?? 'none', minDelay: 0, maxDelay: 0 };
     const pbr = s.playbackRate ?? { rate: 1, preservePitch: 1, random: 0 };
     const tmg = s.timing ?? { startTime: 0, stopTime: 0, skipFirstTiming: false, fadeIn: 0, fadeOut: 0, skipFirstFade: false };
-
-    const srcName = sd.source ? sd.source.split(/[\\/]/).pop() : '—';
-    const isFolder = sd.soundSelect === 'filepicker_folder';
+    const plCount = Array.isArray(sd.playlist) ? sd.playlist.length : (sd.source ? 1 : 0);
+    const pan    = s.pan ?? 0;
+    const autoPlay = s.autoPlay ?? false;
 
     const panel = document.createElement('div');
     panel.id = `chCfgPanel-${this.channelNr}`;
     panel.className = 'fx-panel cfg-panel';
     panel.innerHTML = `
       <div class="fx-header">
-        <span>Config — CH ${this.channelNr + 1}</span>
-        <button class="fx-close" id="chCfgClose-${this.channelNr}">✕</button>
-      </div>
-
-      <div class="fx-section">
-        <div class="fx-section-title">Source</div>
-        <div class="fx-row">
-          <span class="cfg-src-name" id="chCfgSrcName-${this.channelNr}" title="${sd.source ?? ''}">${isFolder ? srcName + '/' : srcName}</span>
-        </div>
-        <div class="fx-row">
-          <button id="chCfgPickFile-${this.channelNr}"><i class="fas fa-file-audio"></i> File</button>
-          <button id="chCfgPickFolder-${this.channelNr}"><i class="fas fa-folder-open"></i> Folder</button>
-          <label class="cfg-label" style="margin-left:8px">Shuffle</label>
-          <input type="checkbox" id="chCfgRandomize-${this.channelNr}" ${s.randomize ? 'checked' : ''}>
+        <span>Настройка — CH ${this.channelNr + 1}</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="cfg-reset-btn" id="chCfgReset-${this.channelNr}" title="Очистить дорожку">🗑</button>
+          <button class="fx-close" id="chCfgClose-${this.channelNr}">✕</button>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Repeat</div>
+        <div class="fx-section-title">Источники</div>
         <div class="fx-row">
-          <label class="cfg-label">Mode</label>
+          <span class="cfg-src-name">${plCount} файл${_plWord(plCount)}</span>
+          <button id="chCfgPlaylist-${this.channelNr}"><i class="fas fa-list"></i> Открыть плейлист</button>
+        </div>
+      </div>
+
+      <div class="fx-section">
+        <div class="fx-section-title">Повтор</div>
+        <div class="fx-row">
+          <label class="cfg-label">Режим</label>
           <select class="cfg-select" id="chCfgRepeat-${this.channelNr}">
-            <option value="none"   ${rpt.repeat === 'none'   ? 'selected' : ''}>None</option>
-            <option value="single" ${rpt.repeat === 'single' ? 'selected' : ''}>Loop</option>
-            <option value="all"    ${rpt.repeat === 'all'    ? 'selected' : ''}>All files</option>
+            <option value="none"   ${rpt.repeat === 'none'   ? 'selected' : ''}>Нет</option>
+            <option value="single" ${rpt.repeat === 'single' ? 'selected' : ''}>Зациклено</option>
+            <option value="all"    ${rpt.repeat === 'all'    ? 'selected' : ''}>Все файлы</option>
           </select>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Min delay</label>
+          <label class="cfg-label">Мин. задержка</label>
           <input class="cfg-num" type="number" id="chCfgMinDelay-${this.channelNr}" min="0" step="0.1" value="${rpt.minDelay ?? 0}">
           <span class="fx-row-unit">s</span>
-          <label class="cfg-label">Max delay</label>
+          <label class="cfg-label">Макс. задержка</label>
           <input class="cfg-num" type="number" id="chCfgMaxDelay-${this.channelNr}" min="0" step="0.1" value="${rpt.maxDelay ?? 0}">
           <span class="fx-row-unit">s</span>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Playback Rate</div>
+        <div class="fx-section-title">Скорость воспроизведения</div>
         <div class="fx-row">
-          <label class="cfg-label">Rate</label>
+          <label class="cfg-label">Скорость</label>
           <input type="range" id="chCfgRate-${this.channelNr}" min="25" max="400" step="1" value="${Math.round((pbr.rate ?? 1) * 100)}">
           <span class="fx-row-val" id="chCfgRateVal-${this.channelNr}">${(pbr.rate ?? 1).toFixed(2)}×</span>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Pitch lock</label>
+          <label class="cfg-label">Не менять высоту</label>
           <input type="checkbox" id="chCfgPreservePitch-${this.channelNr}" ${pbr.preservePitch ? 'checked' : ''}>
-          <label class="cfg-label" style="margin-left:12px">Random ±</label>
+          <label class="cfg-label" style="margin-left:12px">Случайная скорость</label>
           <input type="range" id="chCfgRateRandom-${this.channelNr}" min="0" max="200" step="1" value="${Math.round((pbr.random ?? 0) * 100)}">
           <span class="fx-row-val" id="chCfgRateRandomVal-${this.channelNr}">${(pbr.random ?? 0).toFixed(2)}</span>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Timing</div>
+        <div class="fx-section-title">Доп. настройки</div>
         <div class="fx-row">
+          <label class="cfg-label">Баланс L/R</label>
+          <input type="range" id="chCfgPan-${this.channelNr}" min="-25" max="25" step="1" value="${Math.round(pan * 25)}">
+          <span class="fx-row-val" id="chCfgPanVal-${this.channelNr}">${pan === 0 ? 'C' : (pan > 0 ? 'R' : 'L') + Math.round(Math.abs(pan * 100)) + '%'}</span>
+        </div>
+        <div class="fx-row" style="display:none">
           <label class="cfg-label">Start</label>
           <input class="cfg-num" type="number" id="chCfgStart-${this.channelNr}" min="0" step="0.1" value="${tmg.startTime ?? 0}">
           <span class="fx-row-unit">s</span>
@@ -102,19 +106,23 @@ export class ChannelConfigDialog {
           <input class="cfg-num" type="number" id="chCfgStop-${this.channelNr}" min="0" step="0.1" value="${tmg.stopTime ?? 0}">
           <span class="fx-row-unit">s</span>
         </div>
-        <div class="fx-row">
+        <div class="fx-row" style="display:none">
           <label class="cfg-label">Skip 1st timing</label>
           <input type="checkbox" id="chCfgSkipTiming-${this.channelNr}" ${tmg.skipFirstTiming ? 'checked' : ''}>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Fade in</label>
+          <label class="cfg-label">Нарастание</label>
           <input class="cfg-num" type="number" id="chCfgFadeIn-${this.channelNr}" min="0" step="0.1" value="${tmg.fadeIn ?? 0}">
           <span class="fx-row-unit">s</span>
-          <label class="cfg-label">Fade out</label>
+          <label class="cfg-label">Затухание</label>
           <input class="cfg-num" type="number" id="chCfgFadeOut-${this.channelNr}" min="0" step="0.1" value="${tmg.fadeOut ?? 0}">
           <span class="fx-row-unit">s</span>
         </div>
         <div class="fx-row">
+          <label class="cfg-label">Воспроизводить при смене сцен</label>
+          <input type="checkbox" id="chCfgAutoPlay-${this.channelNr}" ${autoPlay ? 'checked' : ''}>
+        </div>
+        <div class="fx-row" style="display:none">
           <label class="cfg-label">Skip 1st fade</label>
           <input type="checkbox" id="chCfgSkipFade-${this.channelNr}" ${tmg.skipFirstFade ? 'checked' : ''}>
         </div>
@@ -133,29 +141,41 @@ export class ChannelConfigDialog {
     document.getElementById(`chCfgClose-${i}`)
       ?.addEventListener('click', () => document.getElementById(`chCfgPanel-${i}`)?.remove());
 
-    // ── Source ──
-    document.getElementById(`chCfgPickFile-${i}`)?.addEventListener('click', async () => {
-      const paths = await window.api.fs.openDialog({});
-      if (!paths?.length) return;
-      const src  = paths[0];
-      const name = src.split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
-      document.getElementById(`chCfgSrcName-${i}`).textContent = src.split(/[\\/]/).pop();
-      document.getElementById(`chCfgSrcName-${i}`).title = src;
-      await this.mixer.newData(i, { type: 'filepicker_single', source: src, name });
+    // ── Reset ──
+    document.getElementById(`chCfgReset-${i}`)?.addEventListener('click', async () => {
+      if (!confirm('Вы точно хотите очистить содержимое этой дорожки?')) return;
+      await this.mixer.clearChannel(i);
+      document.getElementById(`chCfgPanel-${i}`)?.remove();
     });
 
-    document.getElementById(`chCfgPickFolder-${i}`)?.addEventListener('click', async () => {
-      const paths = await window.api.fs.openDialog({ folder: true });
-      if (!paths?.length) return;
-      const src  = paths[0];
-      const name = src.split(/[\\/]/).pop();
-      document.getElementById(`chCfgSrcName-${i}`).textContent = name + '/';
-      document.getElementById(`chCfgSrcName-${i}`).title = src;
-      await this.mixer.newData(i, { type: 'filepicker_folder', source: src, name });
+    // ── Источники ──
+    document.getElementById(`chCfgPlaylist-${i}`)?.addEventListener('click', () => {
+      new PlaylistDialog({
+        title:         `Плейлист — CH ${i + 1}`,
+        panelId:       `ch-${i}`,
+        getSoundData:  async () => {
+          const ss = await Storage.getSoundscapes();
+          return ss[this.mixer.currentSoundscape]?.channels[i]?.soundData;
+        },
+        saveSoundData: async (data) => {
+          const ss = await Storage.getSoundscapes();
+          if (ss[this.mixer.currentSoundscape]) {
+            ss[this.mixer.currentSoundscape].channels[i].soundData = data;
+            await Storage.setSoundscapes(ss);
+          }
+        },
+        getChannel: () => this.mixer.channels[i]
+      }).open();
     });
 
-    document.getElementById(`chCfgRandomize-${i}`)?.addEventListener('change', async (e) => {
-      await this._saveSetting('randomize', e.target.checked);
+    // ── Pan ──
+    document.getElementById(`chCfgPan-${i}`)?.addEventListener('input', async (e) => {
+      const val = e.target.value / 25;
+      const label = Math.abs(Math.round(val * 100));
+      document.getElementById(`chCfgPanVal-${i}`).textContent =
+        val === 0 ? 'C' : (val > 0 ? `R${label}%` : `L${label}%`);
+      this.channel.setPan(val);
+      await this._saveSetting('pan', val);
     });
 
     // ── Repeat ──
@@ -207,6 +227,11 @@ export class ChannelConfigDialog {
     document.getElementById(`chCfgSkipFade-${i}`)?.addEventListener('change', async (e) => {
       await this._saveTiming('skipFirstFade', e.target.checked);
     });
+
+    // ── Auto-play on scene switch ──
+    document.getElementById(`chCfgAutoPlay-${i}`)?.addEventListener('change', async (e) => {
+      await this._saveSetting('autoPlay', e.target.checked);
+    });
   }
 
   // ── Storage helpers ──────────────────────────────────────────────────────────
@@ -254,6 +279,8 @@ export class ChannelConfigDialog {
     await Storage.setSoundscapes(soundscapes);
   }
 
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+
   // ── Drag ─────────────────────────────────────────────────────────────────────
 
   _makeDraggable(el) {
@@ -277,4 +304,12 @@ export class ChannelConfigDialog {
       document.addEventListener('mouseup',   onUp);
     });
   }
+}
+
+function _plWord(n) {
+  if (n % 100 >= 11 && n % 100 <= 19) return 'ов';
+  const r = n % 10;
+  if (r === 1) return '';
+  if (r >= 2 && r <= 4) return 'а';
+  return 'ов';
 }

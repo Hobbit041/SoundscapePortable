@@ -28,10 +28,11 @@ export class Channel {
   static DEF_SETTINGS = {
     channel: 0, name: '', volume: 1, pan: 0,
     link: false, solo: false, mute: false,
-    repeat: { repeat: 'none', minDelay: 0, maxDelay: 0 },
+    repeat: { repeat: 'all', minDelay: 0, maxDelay: 0 },
     randomize: false,
     playbackRate: { rate: 1, preservePitch: 1, random: 0 },
     timing: { startTime: 0, stopTime: 0, skipFirstTiming: false, fadeIn: 0, fadeOut: 0, skipFirstFade: false },
+    autoPlay: false,
     effects: {
       equalizer: {
         highPass:  { enable: false, frequency: 50,   q: 1 },
@@ -346,7 +347,19 @@ export class Channel {
         }, delayTime);
       } else if (repeat.repeat === 'all') {
         this.randomizeVolume();
-        setTimeout(() => this.next(), delayTime);
+        setTimeout(() => {
+          // Soundboard channels respect the sequential/random playlist setting
+          if (this.channelNr >= 100) {
+            const sequential = this.settings?.soundData?.sequential ?? false;
+            if (!sequential && this.sourceArray?.length > 0) {
+              this.next(Math.floor(Math.random() * this.sourceArray.length));
+            } else {
+              this.next();
+            }
+          } else {
+            this.next();
+          }
+        }, delayTime);
       }
     }
 

@@ -47,7 +47,13 @@ export class Soundboard {
     if (repeat?.repeat === 'single' || repeat?.repeat === 'all') {
       if (ch.playing) { ch.stop(); return; }
     }
-    ch.next();
+
+    const sequential = ch.settings?.soundData?.sequential ?? false;
+    if (!sequential && ch.sourceArray?.length > 0) {
+      ch.next(Math.floor(Math.random() * ch.sourceArray.length));
+    } else {
+      ch.next();
+    }
     ch.play();
   }
 
@@ -55,9 +61,15 @@ export class Soundboard {
   _playSoundLayered(ch) {
     if (!ch.sourceArray?.length) return;
 
-    // Pick URL and advance index for next call (no stop, just pointer move)
-    const url = ch.sourceArray[ch.currentlyPlaying];
-    ch.currentlyPlaying = (ch.currentlyPlaying + 1) % ch.sourceArray.length;
+    // Pick URL: random by default, sequential if flag set
+    const sequential = ch.settings?.soundData?.sequential ?? false;
+    let url;
+    if (sequential) {
+      url = ch.sourceArray[ch.currentlyPlaying];
+      ch.currentlyPlaying = (ch.currentlyPlaying + 1) % ch.sourceArray.length;
+    } else {
+      url = ch.sourceArray[Math.floor(Math.random() * ch.sourceArray.length)];
+    }
 
     if (!url) return;
 
@@ -156,7 +168,12 @@ export class Soundboard {
     let ch = soundscapes[this.mixer.currentSoundscape].soundboard[targetId];
     if (!ch) ch = this.newChannel(targetId);
 
-    if (data.type === 'filepicker_single' || data.type === 'filepicker_folder') {
+    if (data.type === 'playlist') {
+      ch.soundData = { playlist: data.playlist, shuffle: false };
+      if (!ch.name && data.name) ch.name = data.name;
+    } else if (data.type === 'image') {
+      ch.imageSrc = data.source;
+    } else if (data.type === 'filepicker_single' || data.type === 'filepicker_folder') {
       ch.soundData.source = data.source;
       if (!ch.name) ch.name = data.name ?? '';
       ch.soundData.soundSelect = data.type;

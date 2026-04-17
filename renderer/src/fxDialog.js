@@ -31,42 +31,42 @@ export class FXDialog {
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Equalizer</div>
+        <div class="fx-section-title">Эквалайзер</div>
 
         <div class="fx-row">
-          <label>High Pass</label>
+          <label>Высокие частоты</label>
           <input type="checkbox" id="fxHPEn-${this.channel.channelNr}" ${eq.highPass?.enable ? 'checked' : ''}>
-          <label>Freq</label>
+          <label>Частота</label>
           <input type="range" id="fxHPFreq-${this.channel.channelNr}" min="20" max="2000" value="${eq.highPass?.frequency ?? 50}">
           <span id="fxHPFreqVal-${this.channel.channelNr}">${eq.highPass?.frequency ?? 50} Hz</span>
         </div>
 
         <div class="fx-row">
-          <label>Peak 1</label>
+          <label>Пик 1</label>
           <input type="checkbox" id="fxP1En-${this.channel.channelNr}" ${eq.peaking1?.enable ? 'checked' : ''}>
-          <label>Freq</label>
+          <label>Частота</label>
           <input type="range" id="fxP1Freq-${this.channel.channelNr}" min="200" max="5000" value="${eq.peaking1?.frequency ?? 500}">
           <span id="fxP1FreqVal-${this.channel.channelNr}">${eq.peaking1?.frequency ?? 500} Hz</span>
-          <label>Gain</label>
+          <label>Усиление</label>
           <input type="range" id="fxP1Gain-${this.channel.channelNr}" min="-12" max="12" value="${eq.peaking1?.gain ?? 0}">
           <span id="fxP1GainVal-${this.channel.channelNr}">${eq.peaking1?.gain ?? 0} dB</span>
         </div>
 
         <div class="fx-row">
-          <label>Peak 2</label>
+          <label>Пик 2</label>
           <input type="checkbox" id="fxP2En-${this.channel.channelNr}" ${eq.peaking2?.enable ? 'checked' : ''}>
-          <label>Freq</label>
+          <label>Частота</label>
           <input type="range" id="fxP2Freq-${this.channel.channelNr}" min="500" max="15000" value="${eq.peaking2?.frequency ?? 1000}">
           <span id="fxP2FreqVal-${this.channel.channelNr}">${eq.peaking2?.frequency ?? 1000} Hz</span>
-          <label>Gain</label>
+          <label>Усиление</label>
           <input type="range" id="fxP2Gain-${this.channel.channelNr}" min="-12" max="12" value="${eq.peaking2?.gain ?? 0}">
           <span id="fxP2GainVal-${this.channel.channelNr}">${eq.peaking2?.gain ?? 0} dB</span>
         </div>
 
         <div class="fx-row">
-          <label>Low Pass</label>
+          <label>Низкие частоты</label>
           <input type="checkbox" id="fxLPEn-${this.channel.channelNr}" ${eq.lowPass?.enable ? 'checked' : ''}>
-          <label>Freq</label>
+          <label>Частота</label>
           <input type="range" id="fxLPFreq-${this.channel.channelNr}" min="500" max="20000" value="${eq.lowPass?.frequency ?? 2000}">
           <span id="fxLPFreqVal-${this.channel.channelNr}">${eq.lowPass?.frequency ?? 2000} Hz</span>
         </div>
@@ -75,14 +75,14 @@ export class FXDialog {
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Delay</div>
+        <div class="fx-section-title">Задержка</div>
         <div class="fx-row">
-          <label>Enable</label>
+          <label>Включить</label>
           <input type="checkbox" id="fxDelEn-${this.channel.channelNr}" ${dl.enable ? 'checked' : ''}>
-          <label>Time</label>
+          <label>Время</label>
           <input type="range" id="fxDelTime-${this.channel.channelNr}" min="0" max="500" value="${Math.round((dl.delayTime ?? 0.25) * 1000)}">
           <span id="fxDelTimeVal-${this.channel.channelNr}">${Math.round((dl.delayTime ?? 0.25) * 1000)} ms</span>
-          <label>Vol</label>
+          <label>Громкость</label>
           <input type="range" id="fxDelVol-${this.channel.channelNr}" min="0" max="100" value="${Math.round((dl.volume ?? 0.5) * 100)}">
           <span id="fxDelVolVal-${this.channel.channelNr}">${Math.round((dl.volume ?? 0.5) * 100)}%</span>
         </div>

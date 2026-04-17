@@ -4,7 +4,8 @@
  * Replaces soundboardConfig.js (Foundry FormApplication).
  * Covers: name, source, image, volume, repeat, playback rate.
  */
-import { Storage } from './storage.js';
+import { Storage }        from './storage.js';
+import { PlaylistDialog } from './playlistDialog.js';
 
 export class SoundboardConfigDialog {
   constructor(soundboard, mixer, btnNr) {
@@ -28,10 +29,9 @@ export class SoundboardConfigDialog {
     const rpt = (data.repeat && typeof data.repeat === 'object')
       ? data.repeat
       : { repeat: data.repeat ?? 'none', minDelay: 0, maxDelay: 0 };
-    const interrupt = data.interrupt !== false; // default true
-    const srcName = sd.source ? sd.source.split(/[\\/]/).pop() : '—';
-    const isFolder = sd.soundSelect === 'filepicker_folder';
-    const imgName  = data.imageSrc ? data.imageSrc.split(/[\\/]/).pop() : '—';
+    const interrupt = data.interrupt !== false;
+    const plCount   = Array.isArray(sd.playlist) ? sd.playlist.length : (sd.source ? 1 : 0);
+    const imgName   = data.imageSrc ? data.imageSrc.split(/[\\/]/).pop() : '—';
     const vol  = Math.round((data.volume ?? 1) * 100);
     const rvol = Math.round((data.randomizeVolume ?? 0) * 100);
 
@@ -40,16 +40,19 @@ export class SoundboardConfigDialog {
     panel.className = 'fx-panel cfg-panel';
     panel.innerHTML = `
       <div class="fx-header">
-        <span>Config — SB ${this.btnNr + 1}</span>
-        <button class="fx-close" id="sbCfgClose-${this.btnNr}">✕</button>
+        <span>Настройка — SB ${this.btnNr + 1}</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button class="cfg-reset-btn" id="sbCfgReset-${this.btnNr}" title="Очистить кнопку">🗑</button>
+          <button class="fx-close" id="sbCfgClose-${this.btnNr}">✕</button>
+        </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Name</div>
+        <div class="fx-section-title">Название</div>
         <div class="fx-row">
           <input class="cfg-text" type="text" id="sbCfgName-${this.btnNr}"
             value="${(data.name ?? '').replace(/"/g, '&quot;')}"
-            placeholder="Button name" spellcheck="false">
+            placeholder="Название кнопки" spellcheck="false">
         </div>
       </div>
 
@@ -61,72 +64,67 @@ export class SoundboardConfigDialog {
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Source</div>
+        <div class="fx-section-title">Источники</div>
         <div class="fx-row">
-          <span class="cfg-src-name" id="sbCfgSrcName-${this.btnNr}" title="${sd.source ?? ''}">${isFolder ? srcName + '/' : srcName}</span>
-        </div>
-        <div class="fx-row">
-          <button id="sbCfgPickFile-${this.btnNr}"><i class="fas fa-file-audio"></i> File</button>
-          <button id="sbCfgPickFolder-${this.btnNr}"><i class="fas fa-folder-open"></i> Folder</button>
-          <label class="cfg-label" style="margin-left:8px">Shuffle</label>
-          <input type="checkbox" id="sbCfgRandomize-${this.btnNr}" ${data.randomize ? 'checked' : ''}>
+          <span class="cfg-src-name">${plCount} файл${_plWord(plCount)}</span>
+          <button id="sbCfgPlaylist-${this.btnNr}"><i class="fas fa-list"></i> Открыть плейлист</button>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Image</div>
+        <div class="fx-section-title">Изображение</div>
         <div class="fx-row">
           <span class="cfg-src-name" id="sbCfgImgName-${this.btnNr}">${imgName}</span>
-          <button id="sbCfgPickImg-${this.btnNr}"><i class="fas fa-image"></i> Pick</button>
-          <button id="sbCfgClearImg-${this.btnNr}" title="Clear image">✕</button>
+          <button id="sbCfgPickImg-${this.btnNr}"><i class="fas fa-image"></i> Выбрать</button>
+          <button id="sbCfgClearImg-${this.btnNr}" title="Убрать изображение">✕</button>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Volume</div>
+        <div class="fx-section-title">Громкость</div>
         <div class="fx-row">
-          <label class="cfg-label">Volume</label>
+          <label class="cfg-label">Громкость</label>
           <input type="range" id="sbCfgVol-${this.btnNr}" min="0" max="125" step="1" value="${vol}">
           <span class="fx-row-val" id="sbCfgVolVal-${this.btnNr}">${vol}%</span>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Random ±</label>
+          <label class="cfg-label">Случайная ±</label>
           <input type="range" id="sbCfgRVol-${this.btnNr}" min="0" max="100" step="1" value="${rvol}">
           <span class="fx-row-val" id="sbCfgRVolVal-${this.btnNr}">${rvol}%</span>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Repeat</div>
+        <div class="fx-section-title">Повтор</div>
         <div class="fx-row">
-          <label class="cfg-label">Mode</label>
+          <label class="cfg-label">Режим</label>
           <select class="cfg-select" id="sbCfgRepeat-${this.btnNr}">
-            <option value="none"   ${rpt.repeat === 'none'   ? 'selected' : ''}>None</option>
-            <option value="single" ${rpt.repeat === 'single' ? 'selected' : ''}>Loop</option>
-            <option value="all"    ${rpt.repeat === 'all'    ? 'selected' : ''}>All files</option>
+            <option value="none"   ${rpt.repeat === 'none'   ? 'selected' : ''}>Нет</option>
+            <option value="single" ${rpt.repeat === 'single' ? 'selected' : ''}>Зациклено</option>
+            <option value="all"    ${rpt.repeat === 'all'    ? 'selected' : ''}>Все файлы</option>
           </select>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Min delay</label>
+          <label class="cfg-label">Мин. задержка</label>
           <input class="cfg-num" type="number" id="sbCfgMinDelay-${this.btnNr}" min="0" step="0.1" value="${rpt.minDelay ?? 0}">
           <span class="fx-row-unit">s</span>
-          <label class="cfg-label">Max delay</label>
+          <label class="cfg-label">Макс. задержка</label>
           <input class="cfg-num" type="number" id="sbCfgMaxDelay-${this.btnNr}" min="0" step="0.1" value="${rpt.maxDelay ?? 0}">
           <span class="fx-row-unit">s</span>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Playback Rate</div>
+        <div class="fx-section-title">Скорость воспроизведения</div>
         <div class="fx-row">
-          <label class="cfg-label">Rate</label>
+          <label class="cfg-label">Скорость</label>
           <input type="range" id="sbCfgRate-${this.btnNr}" min="25" max="400" step="1" value="${Math.round((pbr.rate ?? 1) * 100)}">
           <span class="fx-row-val" id="sbCfgRateVal-${this.btnNr}">${(pbr.rate ?? 1).toFixed(2)}×</span>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Pitch lock</label>
+          <label class="cfg-label">Не менять высоту</label>
           <input type="checkbox" id="sbCfgPreservePitch-${this.btnNr}" ${pbr.preservePitch ? 'checked' : ''}>
-          <label class="cfg-label" style="margin-left:12px">Random ±</label>
+          <label class="cfg-label" style="margin-left:12px">Случайная скорость</label>
           <input type="range" id="sbCfgRateRandom-${this.btnNr}" min="0" max="200" step="1" value="${Math.round((pbr.random ?? 0) * 100)}">
           <span class="fx-row-val" id="sbCfgRateRandomVal-${this.btnNr}">${(pbr.random ?? 0).toFixed(2)}</span>
         </div>
@@ -145,6 +143,13 @@ export class SoundboardConfigDialog {
     document.getElementById(`sbCfgClose-${i}`)
       ?.addEventListener('click', () => document.getElementById(`sbCfgPanel-${i}`)?.remove());
 
+    // ── Reset ──
+    document.getElementById(`sbCfgReset-${i}`)?.addEventListener('click', async () => {
+      if (!confirm('Вы точно хотите очистить содержимое этой кнопки?')) return;
+      await this.mixer.clearSoundboardButton(i);
+      document.getElementById(`sbCfgPanel-${i}`)?.remove();
+    });
+
     // ── Interrupt ──
     document.getElementById(`sbCfgInterrupt-${i}`)?.addEventListener('change', async (e) => {
       await this._saveField('interrupt', e.target.checked);
@@ -158,30 +163,25 @@ export class SoundboardConfigDialog {
       if (label) label.textContent = name;
     });
 
-    // ── Source ──
-    document.getElementById(`sbCfgPickFile-${i}`)?.addEventListener('click', async () => {
-      const paths = await window.api.fs.openDialog({});
-      if (!paths?.length) return;
-      const src  = paths[0];
-      const name = src.split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
-      document.getElementById(`sbCfgSrcName-${i}`).textContent = src.split(/[\\/]/).pop();
-      document.getElementById(`sbCfgSrcName-${i}`).title = src;
-      await this.mixer.soundboard.newData(i, { type: 'filepicker_single', source: src, name });
-    });
-
-    document.getElementById(`sbCfgPickFolder-${i}`)?.addEventListener('click', async () => {
-      const paths = await window.api.fs.openDialog({ folder: true });
-      if (!paths?.length) return;
-      const src  = paths[0];
-      const name = src.split(/[\\/]/).pop();
-      document.getElementById(`sbCfgSrcName-${i}`).textContent = name + '/';
-      document.getElementById(`sbCfgSrcName-${i}`).title = src;
-      await this.mixer.soundboard.newData(i, { type: 'filepicker_folder', source: src, name });
-    });
-
-    document.getElementById(`sbCfgRandomize-${i}`)?.addEventListener('change', async (e) => {
-      await this._saveField('randomize', e.target.checked);
-      this.mixer.soundboard.channels[i].settings.randomize = e.target.checked;
+    // ── Источники ──
+    document.getElementById(`sbCfgPlaylist-${i}`)?.addEventListener('click', () => {
+      new PlaylistDialog({
+        title:         `Плейлист — SB ${i + 1}`,
+        panelId:       `sb-${i}`,
+        mode:          'soundboard',
+        getSoundData:  async () => {
+          const ss = await Storage.getSoundscapes();
+          return ss[this.mixer.currentSoundscape]?.soundboard?.[i]?.soundData;
+        },
+        saveSoundData: async (data) => {
+          const ss = await Storage.getSoundscapes();
+          if (ss[this.mixer.currentSoundscape]) {
+            ss[this.mixer.currentSoundscape].soundboard[i].soundData = data;
+            await Storage.setSoundscapes(ss);
+          }
+        },
+        getChannel: () => this.mixer.soundboard.channels[i]
+      }).open();
     });
 
     // ── Image ──
@@ -305,4 +305,12 @@ export class SoundboardConfigDialog {
       document.addEventListener('mouseup',   onUp);
     });
   }
+}
+
+function _plWord(n) {
+  if (n % 100 >= 11 && n % 100 <= 19) return 'ов';
+  const r = n % 10;
+  if (r === 1) return '';
+  if (r >= 2 && r <= 4) return 'а';
+  return 'ов';
 }

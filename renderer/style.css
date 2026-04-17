@@ -118,8 +118,37 @@ button:hover { background: #3a3a45; }
   font-size: 16px;
 }
 .btn-play:hover { background: var(--accent); color: #fff; }
+.btn-play-master { width: 100%; padding: 3px 0; font-size: 14px; }
 .btn-danger { border-color: var(--mute-on); color: var(--mute-on); }
 .btn-danger:hover { background: var(--mute-on); color: #fff; }
+
+/* ── WINDOW CONTROLS ──────────────────────────────────────────── */
+.win-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.win-btn {
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--text-dim);
+  padding: 0 14px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  -webkit-app-region: no-drag;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.win-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+.win-close:hover { background: #c42b1c; color: #fff; }
 
 /* ── MAIN AREA ────────────────────────────────────────────────── */
 #main-area {
@@ -143,7 +172,7 @@ button:hover { background: #3a3a45; }
 #channel-strip-row {
   display: flex;
   flex-direction: row;
-  height: 100%;
+  flex-shrink: 0;
   padding: 8px 6px;
   gap: 4px;
 }
@@ -164,6 +193,9 @@ button:hover { background: #3a3a45; }
 .channel-strip.drag-over { border-color: var(--accent); }
 
 .master-strip { background: var(--surface2); width: 56px; }
+
+/* Compensate for missing ch-name above the fader in master strip */
+.master-strip .ch-fader-wrap { margin-top: 21px; }
 
 .ch-top {
   display: flex;
@@ -212,7 +244,6 @@ button:hover { background: #3a3a45; }
 
 /* ── FADER ─────────────────────────────────────────────────────── */
 .ch-fader-wrap {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -431,6 +462,18 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 .fx-close:hover { color: var(--mute-on); background: none; }
 
+.cfg-reset-btn {
+  padding: 1px 5px;
+  font-size: 12px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  opacity: 0.6;
+  line-height: 1;
+}
+.cfg-reset-btn:hover { opacity: 1; color: var(--mute-on); background: none; border-color: transparent; }
+
 .fx-section {
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
@@ -462,6 +505,91 @@ input[type="number"] { -moz-appearance: textfield; }
 
 .fx-row input[type="range"] { flex: 1; min-width: 60px; accent-color: var(--accent); }
 .fx-row span { min-width: 55px; color: var(--text-dim); font-size: 11px; }
+
+/* ── PLAYLIST PANEL ───────────────────────────────────────────── */
+.pl-panel {
+  width: 500px;
+  top: 60px;
+  left: 300px;
+}
+
+.pl-list-wrap {
+  position: relative;
+  height: 260px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.pl-list {
+  height: 100%;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.pl-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.pl-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  margin: 1px 4px;
+  user-select: none;
+}
+.pl-row:hover            { background: var(--surface2); }
+.pl-row-sel              { background: var(--accent-dim); border-color: var(--accent); }
+.pl-row-drag             { opacity: 0.4; }
+.pl-row-over             { border-top: 2px solid var(--accent); }
+
+.pl-row-label {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-wrap-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+
+.pl-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+}
+
+.pl-btn {
+  padding: 3px 8px;
+  font-size: 13px;
+  min-width: 32px;
+}
+.pl-btn:disabled { opacity: 0.35; cursor: default; }
+.pl-del { color: var(--mute-on); border-color: var(--mute-on); }
+.pl-del:not(:disabled):hover { background: var(--mute-on); color: #fff; }
+
+.pl-shuffle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.pl-shuffle input { cursor: pointer; accent-color: var(--accent); }
 
 /* ── CONFIG PANEL (channel / soundboard) ──────────────────────── */
 .cfg-panel {
@@ -541,4 +669,283 @@ input[type="number"] { -moz-appearance: textfield; }
   border-radius: 4px;
   margin-top: 6px;
   border: 1px solid var(--border);
+}
+
+/* ── MIDI status / mapping mode ──────────────────────────────────────────── */
+#midiStatus {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 2px 6px;
+  transition: background 0.15s, color 0.15s;
+}
+#midiStatus:hover { background: rgba(255,255,255,0.06); }
+#midiStatus.midi-mapping-active {
+  background: rgba(220, 160, 0, 0.18);
+  color: #f0c040;
+  outline: 1px solid #f0c040;
+}
+
+/* Wrapper injected next to each mappable element */
+.midi-map-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  vertical-align: middle;
+}
+
+/* Soundboard buttons: wrap overlays top-right corner */
+.sb-cell { position: relative; }
+.sb-cell .midi-map-wrap {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 10;
+  gap: 2px;
+}
+
+/* Chain button — gray / yellow (listening) / green (mapped) */
+.midi-chain-btn {
+  background: #444;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 9px;
+  padding: 1px 3px;
+  line-height: 1.4;
+  opacity: 0.85;
+  transition: background 0.15s;
+}
+.midi-chain-btn:hover { opacity: 1; }
+.midi-chain-btn.midi-chain-mapped {
+  background: #1a6b1a;
+}
+.midi-chain-btn.midi-chain-listening {
+  background: #8a6500;
+  animation: midi-blink 0.7s ease-in-out infinite alternate;
+}
+@keyframes midi-blink {
+  from { opacity: 1; }
+  to   { opacity: 0.4; }
+}
+
+/* Trash button */
+.midi-trash-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 9px;
+  padding: 1px 2px;
+  opacity: 0.55;
+  line-height: 1.4;
+}
+.midi-trash-btn:hover:not(:disabled) { opacity: 1; }
+.midi-trash-btn:disabled { opacity: 0.2; cursor: default; }
+
+/* M / S buttons: wrap drops below the button */
+.btn-mute, .btn-solo {
+  position: relative;
+  overflow: visible;
+}
+.btn-mute .midi-map-wrap,
+.btn-solo .midi-map-wrap {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Prev/Next nav buttons: wrap overlays the entire button */
+.btn-nav-ch {
+  position: relative;
+  overflow: visible;
+}
+.btn-nav-ch .midi-map-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  background: rgba(0, 0, 0, 0.68);
+  border-radius: inherit;
+}
+
+/* ── AMBIENT MIXER SECTION ────────────────────────────────────── */
+#ambient-strip-row {
+  display: flex;
+  flex-direction: row;
+  flex: 1;
+  min-height: 0;
+  padding: 4px 6px;
+  gap: 4px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+}
+
+.amb-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 4px;
+  width: 56px;
+  gap: 3px;
+}
+
+.amb-master-strip { background: var(--surface2); }
+
+/* Compensate for missing amb-cfg + ch-name above the fader in ambient master */
+.amb-master-strip .amb-fader-wrap { margin-top: 25px; }
+
+.amb-cfg {
+  width: 100%;
+  padding: 2px 4px;
+  font-size: 10px;
+  background: var(--bg);
+  flex: none;
+}
+
+.amb-fader-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+}
+
+input[type="range"].amb-fader {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  appearance: slider-vertical;
+  -webkit-appearance: slider-vertical;
+  width: 18px;
+  height: 100%;
+  min-height: 65px;
+  max-height: 120px;
+  cursor: pointer;
+  accent-color: var(--fader-thumb);
+}
+
+/* ── SCENES SECTION ───────────────────────────────────────────── */
+#scenes-section {
+  border-top: 1px solid var(--border);
+  padding: 5px 6px;
+  flex-shrink: 0;
+}
+
+#scenes-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.scene-btn {
+  min-width: 54px;
+  max-width: 110px;
+  padding: 3px 7px;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity 0.7s ease, background-color 0.5s ease, border-color 0.5s ease, color 0.5s ease;
+}
+
+.scene-btn.scene-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.scene-btn.scene-fading-out {
+  opacity: 0.2;
+  background-color: var(--surface) !important;
+  border-color: var(--border) !important;
+  color: var(--text-dim) !important;
+  transition: opacity 0.8s ease, background-color 0.8s ease, border-color 0.8s ease, color 0.8s ease;
+}
+
+.scene-btn.scene-pending-active {
+  background-color: var(--accent-dim) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  opacity: 1 !important;
+  transition: background-color 0.4s ease, border-color 0.4s ease, color 0.4s ease;
+}
+
+.btn-add-scene {
+  padding: 3px 8px;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--surface2);
+  line-height: 1;
+}
+
+.scene-edit-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.scene-name-input {
+  width: 78px;
+  font-size: 11px;
+  padding: 2px 4px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  outline: none;
+}
+
+.scene-trash-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 1px 3px;
+  opacity: 0.6;
+  line-height: 1;
+}
+.scene-trash-btn:hover:not(:disabled) { opacity: 1; }
+.scene-trash-btn:disabled { opacity: 0.2; cursor: default; }
+
+/* ── SOUNDBOARD SCENES ────────────────────────────────────────── */
+#sb-scenes-section {
+  border-top: 1px solid var(--border);
+  padding: 4px 6px;
+  flex-shrink: 0;
+}
+
+#sb-scenes-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.sb-scene-btn {
+  min-width: 40px;
+  max-width: 90px;
+  padding: 2px 6px;
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sb-scene-btn.sb-scene-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
 }

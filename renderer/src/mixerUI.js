@@ -7,12 +7,56 @@ import { Storage }                from './storage.js';
 import { FXDialog }               from './fxDialog.js';
 import { ChannelConfigDialog }    from './channelConfigDialog.js';
 import { SoundboardConfigDialog } from './soundboardConfigDialog.js';
+import { filesToPlaylistItems, PlaylistDialog } from './playlistDialog.js';
+import { AMBIENT_SIZE }           from './ambientMixer.js';
+
+const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif']);
+
+/** Convert a local file path to a file:// URL for use in <img src>. */
+function _fileUrl(p) {
+  if (!p) return '';
+  if (/^(https?:|file:|blob:)/i.test(p)) return p;
+  return 'file:///' + p.replace(/\\/g, '/');
+}
+
+// ── MIDI entity table ────────────────────────────────────────────────────────
+const MIDI_ENTITIES = [
+  ...Array.from({ length: 8 }, (_, i) => [
+    { key: `ch-${i}-mute`,   targetId: `mute-${i}`,         type: 'noteon',    insertInside: true },
+    { key: `ch-${i}-solo`,   targetId: `solo-${i}`,         type: 'noteon',    insertInside: true },
+    { key: `ch-${i}-volume`, targetId: `volumeSlider-${i}`, type: 'pitchbend' },
+    { key: `ch-${i}-play`,   targetId: `playSound-${i}`,    type: 'noteon'    },
+    { key: `ch-${i}-prev`,   targetId: `prevTrack-${i}`,    type: 'noteon',    insertInside: true },
+    { key: `ch-${i}-next`,   targetId: `nextTrack-${i}`,    type: 'noteon',    insertInside: true },
+  ]).flat(),
+  { key: 'master-volume', targetId: 'volumeSlider-master', type: 'pitchbend' },
+  { key: 'master-play',   targetId: 'playMix',             type: 'noteon'    },
+  { key: 'sb-stopall',    targetId: 'sbStopAll',           type: 'noteon'    },
+  ...Array.from({ length: 25 }, (_, i) => ({
+    key: `sb-${i}`, targetId: `sbButton-${i}`, type: 'noteon', insertInside: true
+  })),
+  ...Array.from({ length: AMBIENT_SIZE }, (_, i) => ({
+    key: `amb-${i}-volume`, targetId: `ambSlider-${i}`, type: 'volume_any'
+  })),
+  { key: 'amb-master-volume', targetId: 'ambSlider-master', type: 'volume_any' },
+];
+
+function _fmtMapping(m) {
+  if (!m) return '';
+  if (m.type === 'noteon')      return `Note ${m.note} Ch${m.channel + 1}`;
+  if (m.type === 'pitchbend')   return `PitchBend Ch${m.channel + 1}`;
+  if (m.type === 'cc_relative') return `CC${m.cc} Ch${m.channel + 1}`;
+  return '';
+}
+// ────────────────────────────────────────────────────────────────────────────
 
 export class MixerUI {
   constructor(mixer) {
-    this.mixer = mixer;
-    this._dragSource = null;
+    this.mixer        = mixer;
+    this.midi         = null;   // set by app.js after midi init
+    this._dragSource  = null;
     this._controlDown = false;
+    this._mappingMode = false;
     this._bindStaticEvents();
   }
 
@@ -47,7 +91,6 @@ export class MixerUI {
       this._el(`channelName-${i}`).value      = data.settings?.name ?? '';
       this._el(`volumeSlider-${i}`).value     = (data.settings?.volume ?? 1) * 100;
       this._el(`volumeNumber-${i}`).value     = Math.round((data.settings?.volume ?? 1) * 100);
-      this._el(`panSlider-${i}`).value        = (data.settings?.pan ?? 0) * 25;
       this._setMuteColor(`mute-${i}`, data.settings?.mute ?? false);
       this._setSoloColor(`solo-${i}`, data.settings?.solo ?? false);
       this._setLinkColor(`link-${i}`, data.settings?.link ?? false);
@@ -55,6 +98,29 @@ export class MixerUI {
         ? '<i class="fas fa-stop"></i>'
         : '<i class="fas fa-play"></i>';
     }
+
+    // Scenes
+    this._renderScenes(ss);
+
+    // Ambient mixer
+    const ambData      = ss.ambient ?? [];
+    const ambMasterVol = ss.ambientMaster?.volume ?? 1;
+    const ambSlMaster  = this._el('ambSlider-master');
+    if (ambSlMaster) ambSlMaster.value = ambMasterVol * 100;
+    for (let i = 0; i < AMBIENT_SIZE; i++) {
+      const amb = ambData[i] ?? {};
+      const nameEl = this._el(`ambName-${i}`);
+      const slEl   = this._el(`ambSlider-${i}`);
+      const playEl = this._el(`ambPlay-${i}`);
+      if (nameEl) nameEl.value   = amb.settings?.name ?? '';
+      if (slEl)   slEl.value     = (amb.settings?.volume ?? 1) * 100;
+      if (playEl) playEl.innerHTML = this.mixer.ambientMixer?.channels[i]?.playing
+        ? '<i class="fas fa-stop"></i>'
+        : '<i class="fas fa-play"></i>';
+    }
+
+    // Soundboard scenes
+    this._renderSbScenes(ss);
 
     // Soundboard
     const sbData = ss.soundboard ?? [];
@@ -75,7 +141,7 @@ export class MixerUI {
 
       // Image
       const img = this._el(`sbImg-${i}`);
-      if (img) img.src = d.imageSrc || '';
+      if (img) img.src = _fileUrl(d.imageSrc);
     }
   }
 
@@ -111,8 +177,33 @@ export class MixerUI {
     if (el) el.value = volume * 100;
   }
 
+  /** Update all channel + master volume sliders from live channel state (used by MIDI). */
+  updateAllChannelVolumes() {
+    for (let i = 0; i < 8; i++) {
+      const vol = this.mixer.channels[i].settings.volume ?? 1;
+      const sl = this._el(`volumeSlider-${i}`);
+      const nb = this._el(`volumeNumber-${i}`);
+      if (sl) sl.value = vol * 100;
+      if (nb) nb.value = Math.round(vol * 100);
+    }
+  }
+
+  updateAmbientChannelVolume(i, volume) {
+    const sl = this._el(`ambSlider-${i}`);
+    if (sl) sl.value = volume * 100;
+  }
+
+  updateAmbientMasterVolume(volume) {
+    const sl = this._el('ambSlider-master');
+    if (sl) sl.value = volume * 100;
+  }
+
   updateMute(channelNr, mute) {
     this._setMuteColor(`mute-${channelNr}`, mute);
+  }
+
+  updateSolo(channelNr, solo) {
+    this._setSoloColor(`solo-${channelNr}`, solo);
   }
 
   flashSoundboardButton(index) {
@@ -136,6 +227,9 @@ export class MixerUI {
     document.addEventListener('keydown', e => { if (e.key === 'Control' || e.key === 'Meta') this._controlDown = true; });
     document.addEventListener('keyup',   e => { if (e.key === 'Control' || e.key === 'Meta') this._controlDown = false; });
 
+    // ── MIDI mapping mode ──
+    this._on('midiStatus', 'click', () => this._toggleMappingMode());
+
     // ── Navigation ──
     this._on('prevSoundscape', 'click', () => this._navigate(-1));
     this._on('nextSoundscape', 'click', () => this._navigate(1));
@@ -151,6 +245,7 @@ export class MixerUI {
     this._on('playMix', 'click', () => {
       if (this.mixer.playing) this.mixer.stop();
       else this.mixer.start();
+      this.updatePlayState();
     });
 
     // ── Master volume ──
@@ -171,13 +266,6 @@ export class MixerUI {
       this.mixer.master.setMute(mute);
       this._setMuteColor('mute-master', mute);
       await this._saveMasterMute(mute);
-    });
-
-    // ── Global volume (interface gain) ──
-    this._on('globalVolume', 'input', async (e) => {
-      const val = e.target.value / 100;
-      this.mixer.master.effects.interfaceGain.set(val);
-      await window.api.store.set('volume', val);
     });
 
     // ── Soundboard volume & stop ──
@@ -201,6 +289,24 @@ export class MixerUI {
     for (let i = 0; i < 25; i++) {
       this._bindSoundboardButton(i);
     }
+
+    // ── Ambient channels ──
+    for (let i = 0; i < AMBIENT_SIZE; i++) {
+      this._bindAmbientChannel(i);
+    }
+
+    // ── Ambient master fader ──
+    this._on('ambSlider-master', 'input', async (e) => {
+      const val = e.target.value / 100;
+      this.mixer.ambientMixer?.setMasterVolume(val);
+      await this._saveAmbientMasterVolume(val);
+    });
+
+    // ── Add scene ──
+    this._on('addScene', 'click', () => this.mixer.addScene());
+
+    // ── Add soundboard scene ──
+    this._on('addSbScene', 'click', () => this.mixer.addSoundboardScene());
   }
 
   _bindChannelEvents(i) {
@@ -229,13 +335,7 @@ export class MixerUI {
     });
 
     // Solo
-    this._on(`solo-${i}`, 'click', async () => {
-      const solo = !this.mixer.channels[i].getSolo();
-      this.mixer.channels[i].setSolo(solo);
-      this.mixer.configureSolo();
-      this._setSoloColor(`solo-${i}`, solo);
-      await this._saveChannelSetting(i, 'solo', solo);
-    });
+    this._on(`solo-${i}`, 'click', () => { this.mixer.toggleSolo(i); });
 
     // Link
     this._on(`link-${i}`, 'click', async () => {
@@ -246,19 +346,12 @@ export class MixerUI {
       await this._saveChannelSetting(i, 'link', link);
     });
 
-    // Pan
-    this._on(`panSlider-${i}`, 'input', async (e) => {
-      const val = e.target.value / 25;
-      this.mixer.channels[i].setPan(val);
-      await this._saveChannelSetting(i, 'pan', val);
-    });
-
     // Play/stop individual channel
     this._on(`playSound-${i}`, 'click', () => {
       const ch = this.mixer.channels[i];
       if (ch.playing) this.mixer.stop(i);
       else            this.mixer.start(i);
-      // icon is updated by channel.play() / channel.stop() directly
+      this.updatePlayState();
     });
 
     // Prev / Next track
@@ -288,11 +381,11 @@ export class MixerUI {
       box.addEventListener('drop', async (e) => {
         e.preventDefault();
         box.classList.remove('drag-over');
-        const file = e.dataTransfer.files[0];
-        if (!file) return;
-        const name = file.name.replace(/\.[^.]+$/, '');
-        // In Electron, file.path gives the real disk path
-        await this.mixer.newData(i, { type: 'filepicker_single', source: file.path, name });
+        const files = Array.from(e.dataTransfer.files);
+        if (!files.length) return;
+        const playlist = await filesToPlaylistItems(files);
+        const name = playlist[0]?.label?.replace(/\.[^.]+$/, '') ?? '';
+        await this.mixer.newData(i, { type: 'playlist', playlist, name });
       });
     }
   }
@@ -320,10 +413,278 @@ export class MixerUI {
     btn.addEventListener('drop', async (e) => {
       e.preventDefault();
       btn.classList.remove('drag-over');
-      const file = e.dataTransfer.files[0];
-      if (!file) return;
-      const name = file.name.replace(/\.[^.]+$/, '');
-      await this.mixer.soundboard.newData(i, { type: 'filepicker_single', source: file.path, name });
+      const files = Array.from(e.dataTransfer.files);
+      if (!files.length) return;
+
+      const firstPath = files[0].path;
+      const ext = (firstPath ?? files[0].name).split('.').pop().toLowerCase();
+
+      if (IMAGE_EXT.has(ext)) {
+        // Set as button icon
+        await this.mixer.soundboard.newData(i, { type: 'image', source: firstPath });
+        const img = this._el(`sbImg-${i}`);
+        if (img) img.src = _fileUrl(firstPath);
+      } else {
+        const playlist = await filesToPlaylistItems(files);
+        if (!playlist.length) return;
+        const name = playlist[0]?.label?.replace(/\.[^.]+$/, '') ?? '';
+        await this.mixer.soundboard.newData(i, { type: 'playlist', playlist, name });
+      }
+    });
+  }
+
+  _bindAmbientChannel(i) {
+    // Volume fader
+    this._on(`ambSlider-${i}`, 'input', async (e) => {
+      const val = e.target.value / 100;
+      this.mixer.ambientMixer?.channels[i].setVolume(val);
+      await this._saveAmbientVolume(i, val);
+    });
+
+    // Play/stop toggle
+    this._on(`ambPlay-${i}`, 'click', () => {
+      const ch = this.mixer.ambientMixer?.channels[i];
+      if (!ch) return;
+      if (ch.playing) ch.stop();
+      else            ch.play();
+      const btn = this._el(`ambPlay-${i}`);
+      if (btn) btn.innerHTML = ch.playing
+        ? '<i class="fas fa-stop"></i>'
+        : '<i class="fas fa-play"></i>';
+    });
+
+    // Config button → open playlist dialog
+    this._on(`ambConfig-${i}`, 'click', () => {
+      new PlaylistDialog({
+        title:         `Ambient ${i + 1}`,
+        panelId:       `amb-${i}`,
+        getSoundData:  async () => {
+          const ss = await Storage.getSoundscapes();
+          return ss[this.mixer.currentSoundscape]?.ambient?.[i]?.soundData;
+        },
+        saveSoundData: async (data) => {
+          const ss = await Storage.getSoundscapes();
+          if (ss[this.mixer.currentSoundscape]) {
+            if (!ss[this.mixer.currentSoundscape].ambient)
+              ss[this.mixer.currentSoundscape].ambient = [];
+            if (!ss[this.mixer.currentSoundscape].ambient[i])
+              ss[this.mixer.currentSoundscape].ambient[i] =
+                { settings: { volume: 1, name: '' }, soundData: {} };
+            ss[this.mixer.currentSoundscape].ambient[i].soundData = data;
+            await Storage.setSoundscapes(ss);
+          }
+        },
+        getChannel: () => this.mixer.ambientMixer?.channels[i]
+      }).open();
+    });
+
+    // Name input
+    this._on(`ambName-${i}`, 'change', async (e) => {
+      await this._saveAmbientSetting(i, 'name', e.target.value);
+      const ch = this.mixer.ambientMixer?.channels[i];
+      if (ch) ch.settings.name = e.target.value;
+    });
+
+    // Drag-and-drop
+    const box = this._el(`ambBox-${i}`);
+    if (box) {
+      box.addEventListener('dragover',  e => { e.preventDefault(); box.classList.add('drag-over'); });
+      box.addEventListener('dragleave', () => box.classList.remove('drag-over'));
+      box.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        box.classList.remove('drag-over');
+        const files = Array.from(e.dataTransfer.files);
+        if (!files.length) return;
+        const playlist = await filesToPlaylistItems(files);
+        const ss = await Storage.getSoundscapes();
+        if (ss[this.mixer.currentSoundscape]) {
+          if (!ss[this.mixer.currentSoundscape].ambient)
+            ss[this.mixer.currentSoundscape].ambient = [];
+          if (!ss[this.mixer.currentSoundscape].ambient[i])
+            ss[this.mixer.currentSoundscape].ambient[i] =
+              { settings: { volume: 1, name: '' }, soundData: {} };
+          ss[this.mixer.currentSoundscape].ambient[i].soundData = { playlist, shuffle: false };
+          await Storage.setSoundscapes(ss);
+          const ch = this.mixer.ambientMixer?.channels[i];
+          if (ch) {
+            const urls = await Promise.all(playlist.map(item => window.api.fs.toUrl(item.path)));
+            ch.sourceArray = urls.filter(Boolean);
+          }
+        }
+      });
+    }
+  }
+
+  // ─── Scenes ──────────────────────────────────────────────────────────────────
+
+  _renderScenes(ss) {
+    const scenes       = ss.scenes ?? [];
+    const currentScene = ss.currentScene ?? 0;
+    const addBtn       = this._el('addScene');
+    if (!addBtn) return;
+
+    const row = addBtn.parentElement;
+
+    // Remove existing scene buttons / edit wraps
+    row.querySelectorAll('.scene-btn, .scene-edit-wrap').forEach(el => el.remove());
+
+    // Add scene buttons before the + button
+    scenes.forEach((scene, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'scene-btn' + (idx === currentScene ? ' scene-active' : '');
+      btn.dataset.sceneIdx = idx;
+      btn.textContent = scene.name || `Scene ${idx + 1}`;
+
+      btn.addEventListener('click', () => {
+        const curIdx = this._currentSceneFromRow() ?? currentScene;
+        if (idx === curIdx) return;
+        // Visual transition: fade out current, illuminate target
+        document.querySelector('.scene-btn.scene-active')?.classList.add('scene-fading-out');
+        btn.classList.add('scene-pending-active');
+        this.mixer.switchScene(idx);
+      });
+
+      btn.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        this._editScene(btn, idx, scene.name || `Scene ${idx + 1}`, scenes.length);
+      });
+
+      row.insertBefore(btn, addBtn);
+    });
+
+    // Hide + button when at max
+    addBtn.style.display = scenes.length >= 16 ? 'none' : '';
+
+    // Re-inject scene MIDI controls if mapping mode is active
+    if (this._mappingMode) this._injectSceneMappingControls();
+  }
+
+  _currentSceneFromRow() {
+    const active = document.querySelector('.scene-btn.scene-active');
+    return active ? parseInt(active.dataset.sceneIdx) : null;
+  }
+
+  _editScene(btn, idx, currentName, sceneCount) {
+    const wrap = document.createElement('span');
+    wrap.className = 'scene-edit-wrap';
+
+    const input = document.createElement('input');
+    input.className  = 'scene-name-input';
+    input.type       = 'text';
+    input.value      = currentName;
+    input.spellcheck = false;
+
+    const trash = document.createElement('button');
+    trash.className = 'scene-trash-btn';
+    trash.title     = 'Удалить сцену';
+    trash.textContent = '🗑';
+    trash.disabled  = sceneCount <= 1;
+
+    wrap.appendChild(input);
+    wrap.appendChild(trash);
+    btn.replaceWith(wrap);
+    input.focus();
+    input.select();
+
+    let trashClicked = false;
+
+    trash.addEventListener('mousedown', () => { trashClicked = true; });
+
+    trash.addEventListener('click', async () => {
+      await this.mixer.removeScene(idx);
+      // render() is called by removeScene → renderUI()
+    });
+
+    const finishEdit = async () => {
+      if (trashClicked) return;
+      const newName = input.value.trim() || `Scene ${idx + 1}`;
+      await this.mixer.renameScene(idx, newName);
+      // Re-render scenes only
+      const soundscapes = await Storage.getSoundscapes();
+      this._renderScenes(soundscapes[this.mixer.currentSoundscape]);
+    };
+
+    input.addEventListener('blur', finishEdit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { input.blur(); }
+      if (e.key === 'Escape') { input.value = currentName; trashClicked = true; input.blur(); }
+    });
+  }
+
+  // ─── Soundboard Scenes ───────────────────────────────────────────────────────
+
+  _renderSbScenes(ss) {
+    const sbScenes       = ss.sbScenes ?? [];
+    const currentSbScene = ss.currentSbScene ?? 0;
+    const addBtn         = this._el('addSbScene');
+    if (!addBtn) return;
+
+    const row = addBtn.parentElement;
+    row.querySelectorAll('.sb-scene-btn, .sb-scene-edit-wrap').forEach(el => el.remove());
+
+    sbScenes.forEach((scene, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'sb-scene-btn' + (idx === currentSbScene ? ' sb-scene-active' : '');
+      btn.dataset.sbSceneIdx = idx;
+      btn.textContent = scene.name || `SB ${idx + 1}`;
+
+      btn.addEventListener('click', () => {
+        this.mixer.switchSoundboardScene(idx);
+      });
+
+      btn.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        this._editSbScene(btn, idx, scene.name || `SB ${idx + 1}`, sbScenes.length);
+      });
+
+      row.insertBefore(btn, addBtn);
+    });
+
+    addBtn.style.display = sbScenes.length >= 16 ? 'none' : '';
+  }
+
+  _editSbScene(btn, idx, currentName, sceneCount) {
+    const wrap = document.createElement('span');
+    wrap.className = 'sb-scene-edit-wrap scene-edit-wrap';
+
+    const input = document.createElement('input');
+    input.className  = 'scene-name-input';
+    input.type       = 'text';
+    input.value      = currentName;
+    input.spellcheck = false;
+
+    const trash = document.createElement('button');
+    trash.className = 'scene-trash-btn';
+    trash.title     = 'Удалить сцену саундборда';
+    trash.textContent = '🗑';
+    trash.disabled  = sceneCount <= 1;
+
+    wrap.appendChild(input);
+    wrap.appendChild(trash);
+    btn.replaceWith(wrap);
+    input.focus();
+    input.select();
+
+    let trashClicked = false;
+
+    trash.addEventListener('mousedown', () => { trashClicked = true; });
+
+    trash.addEventListener('click', async () => {
+      await this.mixer.removeSoundboardScene(idx);
+    });
+
+    const finishEdit = async () => {
+      if (trashClicked) return;
+      const newName = input.value.trim() || `SB ${idx + 1}`;
+      await this.mixer.renameSoundboardScene(idx, newName);
+      const soundscapes = await Storage.getSoundscapes();
+      this._renderSbScenes(soundscapes[this.mixer.currentSoundscape]);
+    };
+
+    input.addEventListener('blur', finishEdit);
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { input.blur(); }
+      if (e.key === 'Escape') { input.value = currentName; trashClicked = true; input.blur(); }
     });
   }
 
@@ -401,6 +762,191 @@ export class MixerUI {
       await Storage.setSoundscapes(soundscapes);
     }
   }
+
+  async _saveAmbientVolume(i, val) {
+    const soundscapes = await Storage.getSoundscapes();
+    const ss = soundscapes[this.mixer.currentSoundscape];
+    if (!ss) return;
+    if (!ss.ambient) ss.ambient = [];
+    if (!ss.ambient[i]) ss.ambient[i] = { settings: { volume: 1, name: '' }, soundData: null };
+    ss.ambient[i].settings.volume = val;
+    await Storage.setSoundscapes(soundscapes);
+  }
+
+  async _saveAmbientSetting(i, key, val) {
+    const soundscapes = await Storage.getSoundscapes();
+    const ss = soundscapes[this.mixer.currentSoundscape];
+    if (!ss) return;
+    if (!ss.ambient) ss.ambient = [];
+    if (!ss.ambient[i]) ss.ambient[i] = { settings: { volume: 1, name: '' }, soundData: null };
+    ss.ambient[i].settings[key] = val;
+    await Storage.setSoundscapes(soundscapes);
+  }
+
+  async _saveAmbientMasterVolume(val) {
+    const soundscapes = await Storage.getSoundscapes();
+    const ss = soundscapes[this.mixer.currentSoundscape];
+    if (!ss) return;
+    if (!ss.ambientMaster) ss.ambientMaster = { volume: 1 };
+    ss.ambientMaster.volume = val;
+    await Storage.setSoundscapes(soundscapes);
+  }
+
+  // ─── MIDI mapping mode ───────────────────────────────────────────────────────
+
+  _toggleMappingMode() {
+    if (this._mappingMode) this._exitMappingMode();
+    else this._enterMappingMode();
+  }
+
+  _enterMappingMode() {
+    this._mappingMode = true;
+    const el = this._el('midiStatus');
+    if (el) el.classList.add('midi-mapping-active');
+    this._injectMappingControls();
+  }
+
+  _exitMappingMode() {
+    this.midi?.cancelListening();
+    this._mappingMode = false;
+    const el = this._el('midiStatus');
+    if (el) el.classList.remove('midi-mapping-active');
+    document.querySelectorAll('.midi-map-wrap').forEach(el => el.remove());
+  }
+
+  _injectMappingControls() {
+    const mappings = this.midi?.getMappings() ?? {};
+    for (const entity of MIDI_ENTITIES) {
+      const target = document.getElementById(entity.targetId);
+      if (!target) continue;
+      const mapped = !!mappings[entity.key];
+
+      const wrap = document.createElement('span');
+      wrap.className = 'midi-map-wrap';
+      wrap.dataset.entity = entity.key;
+
+      const chain = document.createElement('button');
+      chain.className = 'midi-chain-btn' + (mapped ? ' midi-chain-mapped' : '');
+      chain.title = mapped ? `MIDI: ${_fmtMapping(mappings[entity.key])}` : 'Привязать MIDI';
+      chain.textContent = '🔗';
+
+      const trash = document.createElement('button');
+      trash.className = 'midi-trash-btn';
+      trash.title = 'Удалить привязку';
+      trash.textContent = '🗑';
+      trash.disabled = !mapped;
+
+      wrap.appendChild(chain);
+      wrap.appendChild(trash);
+
+      if (entity.insertInside) {
+        target.appendChild(wrap);
+      } else {
+        target.parentNode?.insertBefore(wrap, target.nextSibling);
+      }
+
+      chain.addEventListener('click', e => { e.stopPropagation(); this._onChainClick(entity.key, entity.type, chain); });
+      trash.addEventListener('click', e => { e.stopPropagation(); this._onTrashClick(entity.key); });
+    }
+    this._injectSceneMappingControls();
+  }
+
+  _injectSceneMappingControls() {
+    // Remove stale scene wraps before re-injecting (scene buttons may have been rebuilt)
+    document.querySelectorAll('.midi-map-wrap[data-entity^="scene-"]').forEach(el => el.remove());
+
+    const mappings = this.midi?.getMappings() ?? {};
+    document.querySelectorAll('.scene-btn').forEach(btn => {
+      const idx = btn.dataset.sceneIdx;
+      if (idx == null) return;
+      const key    = `scene-${idx}`;
+      const mapped = !!mappings[key];
+
+      const wrap = document.createElement('span');
+      wrap.className = 'midi-map-wrap';
+      wrap.dataset.entity = key;
+
+      const chain = document.createElement('button');
+      chain.className = 'midi-chain-btn' + (mapped ? ' midi-chain-mapped' : '');
+      chain.title = mapped ? `MIDI: ${_fmtMapping(mappings[key])}` : 'Привязать MIDI';
+      chain.textContent = '🔗';
+
+      const trash = document.createElement('button');
+      trash.className = 'midi-trash-btn';
+      trash.title = 'Удалить привязку';
+      trash.textContent = '🗑';
+      trash.disabled = !mapped;
+
+      wrap.appendChild(chain);
+      wrap.appendChild(trash);
+      btn.appendChild(wrap);
+
+      chain.addEventListener('click', e => { e.stopPropagation(); this._onChainClick(key, 'noteon', chain); });
+      trash.addEventListener('click', e => { e.stopPropagation(); this._onTrashClick(key); });
+    });
+  }
+
+  /** Called by app.js via mixer.onSceneRemoved */
+  async onSceneRemoved(idx) {
+    if (!this.midi) return;
+    await this.midi.clearMapping(`scene-${idx}`);
+    // Remap remaining scene keys: scene-N+1 → scene-N for indices above removed
+    const mappings = this.midi.getMappings();
+    const toRemap = Object.entries(mappings)
+      .filter(([k]) => { const m = k.match(/^scene-(\d+)$/); return m && +m[1] > idx; });
+    for (const [key, val] of toRemap) {
+      const newIdx = +key.match(/^scene-(\d+)$/)[1] - 1;
+      await this.midi.clearMapping(key);
+      await this.midi.setMapping(`scene-${newIdx}`, val);
+    }
+  }
+
+  _onChainClick(entityKey, type, chainBtn) {
+    if (!this.midi) return;
+    if (this.midi.getListeningFor() === entityKey) {
+      // Toggle off: cancel listening
+      this.midi.stopListening();
+    } else {
+      // Start listening (startListening auto-cancels any previous listener)
+      this.midi.startListening(entityKey, type);
+      chainBtn.className = 'midi-chain-btn midi-chain-listening';
+    }
+  }
+
+  async _onTrashClick(entityKey) {
+    if (!this.midi) return;
+    if (this.midi.getListeningFor() === entityKey) this.midi.stopListening();
+    await this.midi.clearMapping(entityKey);
+    const wrap = document.querySelector(`.midi-map-wrap[data-entity="${entityKey}"]`);
+    if (wrap) {
+      const chain = wrap.querySelector('.midi-chain-btn');
+      if (chain) { chain.className = 'midi-chain-btn'; chain.title = 'Привязать MIDI'; }
+      const trash = wrap.querySelector('.midi-trash-btn');
+      if (trash) trash.disabled = true;
+    }
+  }
+
+  /** Called by midi.onMappingCaptured — mapping was just saved. */
+  onMappingCaptured(entityKey, data) {
+    const wrap = document.querySelector(`.midi-map-wrap[data-entity="${entityKey}"]`);
+    if (wrap) {
+      const chain = wrap.querySelector('.midi-chain-btn');
+      if (chain) { chain.className = 'midi-chain-btn midi-chain-mapped'; chain.title = `MIDI: ${_fmtMapping(data)}`; }
+      const trash = wrap.querySelector('.midi-trash-btn');
+      if (trash) trash.disabled = false;
+    }
+  }
+
+  /** Called by midi.onListeningStop — listening was cancelled or transferred. */
+  onListeningStop(prevEntityKey) {
+    if (!prevEntityKey) return;
+    const mapped = !!this.midi?.getMappings()[prevEntityKey];
+    const wrap = document.querySelector(`.midi-map-wrap[data-entity="${prevEntityKey}"]`);
+    const chain = wrap?.querySelector('.midi-chain-btn');
+    if (chain) chain.className = 'midi-chain-btn' + (mapped ? ' midi-chain-mapped' : '');
+  }
+
+  // ─── Data export / import ────────────────────────────────────────────────────
 
   async _exportData() {
     const soundscapes = await Storage.getSoundscapes();

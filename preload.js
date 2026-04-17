@@ -29,5 +29,13 @@ contextBridge.exposeInMainWorld('api', {
   data: {
     save: (data) => ipcRenderer.invoke('save-soundscape-file', data),
     load: () => ipcRenderer.invoke('load-soundscape-file'),
+  },
+
+  // ─── Window controls ──────────────────────────────────────────────────────
+  win: {
+    minimize:    () => ipcRenderer.invoke('window-minimize'),
+    maximize:    () => ipcRenderer.invoke('window-maximize'),
+    close:       () => ipcRenderer.invoke('window-close'),
+    isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
   }
 });
