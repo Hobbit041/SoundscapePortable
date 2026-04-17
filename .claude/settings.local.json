@@ -5,7 +5,8 @@
       "Bash(ls *.js main.js)",
       "Bash(npm run:*)",
       "Bash(CSC_IDENTITY_AUTO_DISCOVERY=false npm run build)",
-      "Bash(npx electron-builder:*)"
+      "Bash(npx electron-builder:*)",
+      "Bash(chmod -R +x /Users/phoenix/WebstormProjects/SoundscapePortable/node_modules/app-builder-bin/mac/ /Users/phoenix/WebstormProjects/SoundscapePortable/node_modules/.bin/)"
     ]
   }
 }
