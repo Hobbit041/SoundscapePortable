@@ -6,8 +6,14 @@
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win",
+    "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
     "build:all": "electron-builder -mwl"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hobbit041/SoundscapePortable.git"
   },
   "devDependencies": {
     "dmg-license": "^1.0.11",
