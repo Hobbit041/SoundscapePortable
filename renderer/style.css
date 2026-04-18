@@ -53,7 +53,10 @@ html, body {
   -webkit-app-region: drag; /* drag window */
 }
 
-#header * { -webkit-app-region: no-drag; }
+#header button,
+#header input,
+#header select,
+#midiStatus { -webkit-app-region: no-drag; }
 
 .header-left, .header-right, .header-center {
   display: flex;
@@ -191,6 +194,7 @@ button:hover { background: #3a3a45; }
   transition: border-color 0.15s;
 }
 .channel-strip.drag-over { border-color: var(--accent); }
+.channel-strip.drag-over .ch-fader { pointer-events: none; }
 
 .master-strip { background: var(--surface2); width: 56px; }
 
@@ -798,7 +802,10 @@ input[type="number"] { -moz-appearance: textfield; }
   padding: 4px 4px;
   width: 56px;
   gap: 3px;
+  transition: border-color 0.15s;
 }
+.amb-strip.drag-over { border-color: var(--accent); }
+.amb-strip.drag-over .amb-fader { pointer-events: none; }
 
 .amb-master-strip { background: var(--surface2); }
 
@@ -828,8 +835,8 @@ input[type="range"].amb-fader {
   -webkit-appearance: slider-vertical;
   width: 18px;
   height: 100%;
-  min-height: 65px;
-  max-height: 120px;
+  min-height: 50px;
+  max-height: 85px;
   cursor: pointer;
   accent-color: var(--fader-thumb);
 }
@@ -948,4 +955,80 @@ input[type="range"].amb-fader {
   background: var(--accent-dim);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* ── CHANNEL DRAG-AND-DROP ────────────────────────────────────── */
+
+/* Source slot: invisible but holds its space so the layout doesn't shift */
+.ch-drag-source {
+  visibility: hidden;
+}
+
+/* Drop target highlight — yellow outline */
+.channel-strip.ch-drag-target,
+.amb-strip.ch-drag-target,
+.sb-cell.ch-drag-target {
+  outline: 2px solid #e0e000;
+  box-shadow: 0 0 10px rgba(220, 220, 0, 0.45);
+}
+
+/* ── SOUNDSCAPE LIST PANEL ───────────────────────────────────── */
+.ss-list-panel {
+  position: fixed;
+  z-index: 8000;
+  width: 220px;
+  max-height: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ss-list-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+
+.ss-row {
+  padding: 7px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+  transition: background 0.1s;
+}
+.ss-row:hover { background: var(--surface2); }
+.ss-row-active {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+.ss-row-active:hover { background: #6a3518; }
+.ss-row-dragging { opacity: 0.4; }
+.ss-row-above { border-top-color: #e0e000; }
+.ss-row-below { border-bottom-color: #e0e000; }
+
+.ss-list-footer {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.ss-list-footer button { flex: 1; }
+
+/* Ghost element that follows the cursor */
+.ch-drag-ghost {
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+  cursor: grabbing !important;
 }

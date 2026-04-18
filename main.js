@@ -12,13 +12,14 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 700,
+    width: 1042,
+    height: 600,
     minWidth: 1000,
-    minHeight: 600,
+    minHeight: 530,
     backgroundColor: '#1a1a1e',
     title: 'Soundscapes',
     frame: false,
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -106,10 +107,10 @@ ipcMain.handle('open-file-dialog', async (_, options) => {
 });
 
 // Save a .soundscapeData file
-ipcMain.handle('save-soundscape-file', async (_, data) => {
+ipcMain.handle('save-soundscape-file', async (_, data, defaultName) => {
   const result = await dialog.showSaveDialog(mainWindow, {
     title: 'Export Soundscape',
-    defaultPath: 'soundscape.soundscapeData',
+    defaultPath: (defaultName || 'soundscape') + '.soundscapeData',
     filters: [{ name: 'Soundscape Data', extensions: ['soundscapeData'] }]
   });
   if (result.canceled) return false;
@@ -122,6 +123,30 @@ ipcMain.handle('load-soundscape-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow, {
     title: 'Import Soundscape',
     filters: [{ name: 'Soundscape Data', extensions: ['soundscapeData', 'json'] }],
+    properties: ['openFile']
+  });
+  if (result.canceled) return null;
+  const raw = fs.readFileSync(result.filePaths[0], 'utf8');
+  return JSON.parse(raw);
+});
+
+// Save a .midimap file
+ipcMain.handle('save-midi-file', async (_, data) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: 'Экспорт MIDI-маппинга',
+    defaultPath: 'midi-mapping.midimap',
+    filters: [{ name: 'MIDI Mapping', extensions: ['midimap'] }]
+  });
+  if (result.canceled) return false;
+  fs.writeFileSync(result.filePath, JSON.stringify(data, null, 2), 'utf8');
+  return true;
+});
+
+// Load a .midimap file
+ipcMain.handle('load-midi-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Импорт MIDI-маппинга',
+    filters: [{ name: 'MIDI Mapping', extensions: ['midimap', 'json'] }],
     properties: ['openFile']
   });
   if (result.canceled) return null;

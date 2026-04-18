@@ -27,8 +27,14 @@ contextBridge.exposeInMainWorld('api', {
 
   // ─── Import / Export ──────────────────────────────────────────────────────
   data: {
-    save: (data) => ipcRenderer.invoke('save-soundscape-file', data),
+    save: (data, defaultName) => ipcRenderer.invoke('save-soundscape-file', data, defaultName),
     load: () => ipcRenderer.invoke('load-soundscape-file'),
+  },
+
+  // ─── MIDI mapping import / export ─────────────────────────────────────────
+  midi: {
+    saveMappings: (data) => ipcRenderer.invoke('save-midi-file', data),
+    loadMappings: () => ipcRenderer.invoke('load-midi-file'),
   },
 
   // ─── Window controls ──────────────────────────────────────────────────────

@@ -196,8 +196,6 @@ export class Mixer {
     const curIdx = ss.currentScene ?? 0;
     if (newSceneIdx === curIdx) return;
 
-    const ambWasPlaying = this.ambientMixer.channels.map(ch => ch.playing);
-
     // Fade out both mixers
     await this._sceneFadeOut();
 
@@ -236,10 +234,16 @@ export class Mixer {
       setTimeout(() => { for (const ch of autoPlayChannels) ch.play(); }, 300);
     }
 
-    // Ambient channels: restore their previous playing state
+    // Ambient channels: only restart those with autoPlay=true
     for (let i = 0; i < this.ambientMixer.channelCount; i++) {
-      if (ambWasPlaying[i] && this.ambientMixer.channels[i].sourceArray.length) {
-        setTimeout(() => this.ambientMixer.channels[i].play(), 200);
+      const ambEntry = ss.ambient?.[i];
+      if (ambEntry?.soundData?.autoPlay && this.ambientMixer.channels[i].sourceArray.length) {
+        const ch = this.ambientMixer.channels[i];
+        setTimeout(() => {
+          ch.play();
+          const playEl = document.getElementById(`ambPlay-${i}`);
+          if (playEl) playEl.innerHTML = '<i class="fas fa-stop"></i>';
+        }, 200);
       }
     }
 
@@ -280,10 +284,15 @@ export class Mixer {
     if (!ss.scenes) ss.scenes = [];
     if (ss.scenes.length >= 16) return;
 
+    const emptyAmbient = Array.from({ length: AMBIENT_SIZE }, (_, i) => ({
+      channel: i,
+      settings: { volume: 1, name: '' },
+      soundData: { playlist: [], shuffle: false }
+    }));
     ss.scenes.push({
       name:     `Scene ${ss.scenes.length + 1}`,
       channels: structuredClone(ss.channels),
-      ambient:  structuredClone(ss.ambient ?? [])
+      ambient:  emptyAmbient
     });
     soundscapes[this.currentSoundscape] = ss;
     await Storage.setSoundscapes(soundscapes);
@@ -442,6 +451,28 @@ export class Mixer {
     soundscapes[this.currentSoundscape] = ss;
     await Storage.setSoundscapes(soundscapes);
     await this.channels[channelNr].setData(ss.channels[channelNr]);
+    this.renderUI();
+  }
+
+  async clearAmbientChannel(i) {
+    const ch = this.ambientMixer?.channels[i];
+    if (ch) ch.stop();
+    const soundscapes = await Storage.getSoundscapes();
+    const ss = soundscapes[this.currentSoundscape];
+    if (!ss) return;
+    if (!ss.ambient) ss.ambient = [];
+    ss.ambient[i] = {
+      channel: i,
+      settings: { volume: 1, name: '' },
+      soundData: { playlist: [], shuffle: false }
+    };
+    soundscapes[this.currentSoundscape] = ss;
+    await Storage.setSoundscapes(soundscapes);
+    if (ch) {
+      ch.sourceArray = [];
+      ch.settings = { volume: 1, name: '' };
+      ch.gainNode.gain.value = 1;
+    }
     this.renderUI();
   }
 

@@ -44,16 +44,18 @@ function _sortAlphaItems(arr) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export class PlaylistDialog {
-  constructor({ title, panelId, getSoundData, saveSoundData, getChannel, mode }) {
+  constructor({ title, panelId, getSoundData, saveSoundData, getChannel, mode, onClear }) {
     this.title         = title;
     this.panelId       = panelId;
     this.getSoundData  = getSoundData;
     this.saveSoundData = saveSoundData;
     this.getChannel    = getChannel;
     this._mode         = mode ?? 'channel';
+    this._onClear      = onClear ?? null;
     this.playlist      = [];   // [{ path, label }]
     this.shuffle       = false;
     this.sequential    = false;
+    this.autoPlay      = false;
     this.selectedSet   = new Set();  // indices of selected rows
     this._anchorIdx    = -1;         // anchor for shift-click range
     this._dragSrcIdx   = null;
@@ -68,6 +70,7 @@ export class PlaylistDialog {
     this.playlist     = this._loadPlaylist(soundData);
     this.shuffle      = soundData?.shuffle ?? false;
     this.sequential   = soundData?.sequential ?? false;
+    this.autoPlay     = soundData?.autoPlay ?? false;
     this.selectedSet  = new Set();
     this._anchorIdx   = -1;
 
@@ -77,7 +80,10 @@ export class PlaylistDialog {
     panel.innerHTML = `
       <div class="fx-header">
         <span>${this.title}</span>
-        <button class="fx-close" id="plClose-${this.panelId}">✕</button>
+        <div style="display:flex;gap:4px;align-items:center">
+          ${this._onClear ? `<button class="cfg-reset-btn" id="plClear-${this.panelId}" title="Очистить канал">🗑</button>` : ''}
+          <button class="fx-close" id="plClose-${this.panelId}">✕</button>
+        </div>
       </div>
       <div class="pl-list-wrap" id="plListWrap-${this.panelId}">
         <div class="pl-list" id="plList-${this.panelId}"></div>
@@ -91,6 +97,15 @@ export class PlaylistDialog {
           ? `<label class="pl-shuffle">
                <input type="checkbox" id="plSequential-${this.panelId}" ${this.sequential ? 'checked' : ''}>
                Воспроизводить поочередно
+             </label>`
+          : this._mode === 'ambient'
+          ? `<label class="pl-shuffle">
+               <input type="checkbox" id="plAutoPlay-${this.panelId}" ${this.autoPlay ? 'checked' : ''}>
+               Воспроизводить при смене сцен
+             </label>
+             <label class="pl-shuffle">
+               <input type="checkbox" id="plShuffle-${this.panelId}" ${this.shuffle ? 'checked' : ''}>
+               Перемешать
              </label>`
           : `<label class="pl-shuffle">
                <input type="checkbox" id="plShuffle-${this.panelId}" ${this.shuffle ? 'checked' : ''}>
@@ -184,6 +199,10 @@ export class PlaylistDialog {
       const seq = this._q(`plSequential-${this.panelId}`);
       if (seq) seq.checked = this.sequential;
     } else {
+      if (this._mode === 'ambient') {
+        const ap = this._q(`plAutoPlay-${this.panelId}`);
+        if (ap) ap.checked = this.autoPlay;
+      }
       const sh = this._q(`plShuffle-${this.panelId}`);
       if (sh) sh.checked = this.shuffle;
     }
@@ -263,6 +282,14 @@ export class PlaylistDialog {
     this._q(`plClose-${id}`)
       ?.addEventListener('click', () => document.getElementById(`plPanel-${id}`)?.remove());
 
+    if (this._onClear) {
+      this._q(`plClear-${id}`)?.addEventListener('click', async () => {
+        if (!confirm('Очистить канал?')) return;
+        await this._onClear();
+        document.getElementById(`plPanel-${id}`)?.remove();
+      });
+    }
+
     this._q(`plUp-${id}`)?.addEventListener('click', () => this._moveSelectionUp());
     this._q(`plDown-${id}`)?.addEventListener('click', () => this._moveSelectionDown());
 
@@ -283,6 +310,12 @@ export class PlaylistDialog {
         await this._save();
       });
     } else {
+      if (this._mode === 'ambient') {
+        this._q(`plAutoPlay-${id}`)?.addEventListener('change', async e => {
+          this.autoPlay = e.target.checked;
+          await this._save();
+        });
+      }
       this._q(`plShuffle-${id}`)?.addEventListener('change', async e => {
         this.shuffle = e.target.checked;
         if (this.shuffle) {
@@ -357,6 +390,7 @@ export class PlaylistDialog {
   async _save() {
     const soundData = { playlist: this.playlist, shuffle: this.shuffle };
     if (this._mode === 'soundboard') soundData.sequential = this.sequential;
+    if (this._mode === 'ambient')    soundData.autoPlay    = this.autoPlay;
     await this.saveSoundData(soundData);
     const ch = this.getChannel();
     if (ch) {

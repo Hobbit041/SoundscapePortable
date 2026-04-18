@@ -65,11 +65,11 @@ export class MixerUI {
   async render() {
     const soundscapes = await Storage.getSoundscapes();
     const ss = soundscapes[this.mixer.currentSoundscape] ?? {};
-    const total = soundscapes.length;
 
     // Header
     this._el('soundscapeName').value  = this.mixer.name ?? '';
-    this._el('soundscapeNumber').textContent = `${this.mixer.currentSoundscape + 1} / ${total}`;
+    // Update profile list if open
+    await this._refreshSoundscapeList();
 
     // Play button
     this._el('playMix').innerHTML = this.mixer.playing
@@ -224,17 +224,18 @@ export class MixerUI {
   // ─── Static event binding (called once) ──────────────────────────────────────
 
   _bindStaticEvents() {
-    document.addEventListener('keydown', e => { if (e.key === 'Control' || e.key === 'Meta') this._controlDown = true; });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Control' || e.key === 'Meta') this._controlDown = true;
+      if (e.key === 'F2') { e.preventDefault(); this._exportMidiMappings(); }
+      if (e.key === 'F3') { e.preventDefault(); this._importMidiMappings(); }
+    });
     document.addEventListener('keyup',   e => { if (e.key === 'Control' || e.key === 'Meta') this._controlDown = false; });
 
     // ── MIDI mapping mode ──
     this._on('midiStatus', 'click', () => this._toggleMappingMode());
 
-    // ── Navigation ──
-    this._on('prevSoundscape', 'click', () => this._navigate(-1));
-    this._on('nextSoundscape', 'click', () => this._navigate(1));
-    this._on('addSoundscape',  'click', () => this._addSoundscape());
-    this._on('delSoundscape',  'click', () => this._removeSoundscape());
+    // ── Profile list ──
+    this._on('soundscapeList', 'click', () => this._openSoundscapeList());
 
     // ── Soundscape name ──
     this._on('soundscapeName', 'change', async (e) => {
@@ -454,29 +455,7 @@ export class MixerUI {
     });
 
     // Config button → open playlist dialog
-    this._on(`ambConfig-${i}`, 'click', () => {
-      new PlaylistDialog({
-        title:         `Ambient ${i + 1}`,
-        panelId:       `amb-${i}`,
-        getSoundData:  async () => {
-          const ss = await Storage.getSoundscapes();
-          return ss[this.mixer.currentSoundscape]?.ambient?.[i]?.soundData;
-        },
-        saveSoundData: async (data) => {
-          const ss = await Storage.getSoundscapes();
-          if (ss[this.mixer.currentSoundscape]) {
-            if (!ss[this.mixer.currentSoundscape].ambient)
-              ss[this.mixer.currentSoundscape].ambient = [];
-            if (!ss[this.mixer.currentSoundscape].ambient[i])
-              ss[this.mixer.currentSoundscape].ambient[i] =
-                { settings: { volume: 1, name: '' }, soundData: {} };
-            ss[this.mixer.currentSoundscape].ambient[i].soundData = data;
-            await Storage.setSoundscapes(ss);
-          }
-        },
-        getChannel: () => this.mixer.ambientMixer?.channels[i]
-      }).open();
-    });
+    this._on(`ambConfig-${i}`, 'click', () => this._openAmbientPlaylist(i));
 
     // Name input
     this._on(`ambName-${i}`, 'change', async (e) => {
@@ -485,9 +464,14 @@ export class MixerUI {
       if (ch) ch.settings.name = e.target.value;
     });
 
-    // Drag-and-drop
+    // Drag-and-drop + right-click
     const box = this._el(`ambBox-${i}`);
     if (box) {
+      box.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        this._openAmbientPlaylist(i);
+      });
+
       box.addEventListener('dragover',  e => { e.preventDefault(); box.classList.add('drag-over'); });
       box.addEventListener('dragleave', () => box.classList.remove('drag-over'));
       box.addEventListener('drop', async (e) => {
@@ -496,6 +480,53 @@ export class MixerUI {
         const files = Array.from(e.dataTransfer.files);
         if (!files.length) return;
         const playlist = await filesToPlaylistItems(files);
+        if (!playlist.length) return;
+        const ss = await Storage.getSoundscapes();
+        if (!ss[this.mixer.currentSoundscape]) return;
+        if (!ss[this.mixer.currentSoundscape].ambient)
+          ss[this.mixer.currentSoundscape].ambient = [];
+        if (!ss[this.mixer.currentSoundscape].ambient[i])
+          ss[this.mixer.currentSoundscape].ambient[i] =
+            { settings: { volume: 1, name: '' }, soundData: {} };
+
+        const ambEntry = ss[this.mixer.currentSoundscape].ambient[i];
+        ambEntry.soundData = { playlist, shuffle: false };
+
+        // Set name from first file if channel has no name yet
+        const newName = playlist[0]?.label?.replace(/\.[^.]+$/, '') ?? '';
+        if (!ambEntry.settings.name && newName) {
+          ambEntry.settings.name = newName;
+        }
+
+        await Storage.setSoundscapes(ss);
+
+        const ch = this.mixer.ambientMixer?.channels[i];
+        if (ch) {
+          const urls = await Promise.all(playlist.map(item => window.api.fs.toUrl(item.path)));
+          ch.sourceArray = urls.filter(Boolean);
+          ch.settings.name = ambEntry.settings.name;
+        }
+
+        // Update name input in DOM
+        const nameEl = this._el(`ambName-${i}`);
+        if (nameEl) nameEl.value = ambEntry.settings.name;
+
+        // Restore slider value — Chromium may alter range inputs during OS drag-and-drop
+        const slEl = this._el(`ambSlider-${i}`);
+        if (slEl) slEl.value = (ambEntry.settings.volume ?? 1) * 100;
+      });
+    }
+  }
+
+  _openAmbientPlaylist(i) {
+    new PlaylistDialog({
+      title:         `Ambient ${i + 1}`,
+      panelId:       `amb-${i}`,
+      getSoundData:  async () => {
+        const ss = await Storage.getSoundscapes();
+        return ss[this.mixer.currentSoundscape]?.ambient?.[i]?.soundData;
+      },
+      saveSoundData: async (data) => {
         const ss = await Storage.getSoundscapes();
         if (ss[this.mixer.currentSoundscape]) {
           if (!ss[this.mixer.currentSoundscape].ambient)
@@ -503,16 +534,14 @@ export class MixerUI {
           if (!ss[this.mixer.currentSoundscape].ambient[i])
             ss[this.mixer.currentSoundscape].ambient[i] =
               { settings: { volume: 1, name: '' }, soundData: {} };
-          ss[this.mixer.currentSoundscape].ambient[i].soundData = { playlist, shuffle: false };
+          ss[this.mixer.currentSoundscape].ambient[i].soundData = data;
           await Storage.setSoundscapes(ss);
-          const ch = this.mixer.ambientMixer?.channels[i];
-          if (ch) {
-            const urls = await Promise.all(playlist.map(item => window.api.fs.toUrl(item.path)));
-            ch.sourceArray = urls.filter(Boolean);
-          }
         }
-      });
-    }
+      },
+      getChannel: () => this.mixer.ambientMixer?.channels[i],
+      mode:       'ambient',
+      onClear:    async () => { await this.mixer.clearAmbientChannel(i); }
+    }).open();
   }
 
   // ─── Scenes ──────────────────────────────────────────────────────────────────
@@ -712,23 +741,186 @@ export class MixerUI {
     if (el) el.style.backgroundColor = link ? '#0096ff' : '#000fff';
   }
 
-  async _navigate(direction) {
-    const soundscapes = await Storage.getSoundscapes();
-    let next = this.mixer.currentSoundscape + direction;
-    if (next < 0) next = soundscapes.length - 1;
-    if (next >= soundscapes.length) next = 0;
-    await this.mixer.setSoundscape(next);
+  // ─── Profile list panel ──────────────────────────────────────────────────────
+
+  _openSoundscapeList() {
+    const existing = document.getElementById('ssListPanel');
+    if (existing) { existing.remove(); return; }
+    this._renderSoundscapeListPanel();
   }
 
-  async _addSoundscape() {
+  async _renderSoundscapeListPanel() {
     const soundscapes = await Storage.getSoundscapes();
-    await this.mixer.insertSoundscape(soundscapes.length);
-    await this.mixer.setSoundscape(soundscapes.length);
+    const current = this.mixer.currentSoundscape;
+
+    const panel = document.createElement('div');
+    panel.id        = 'ssListPanel';
+    panel.className = 'ss-list-panel';
+
+    // Position below the trigger button
+    const btn = document.getElementById('soundscapeList');
+    if (btn) {
+      const rect = btn.getBoundingClientRect();
+      panel.style.top  = `${rect.bottom + 4}px`;
+      panel.style.left = `${Math.max(4, rect.right - 220)}px`;
+    }
+
+    const scroll = document.createElement('div');
+    scroll.className = 'ss-list-scroll';
+    scroll.id        = 'ssListScroll';
+
+    soundscapes.forEach((ss, idx) => {
+      scroll.appendChild(this._makeSsRow(ss, idx, current));
+    });
+
+    const footer = document.createElement('div');
+    footer.className = 'ss-list-footer';
+    footer.innerHTML = `
+      <button id="ssListAdd" title="Добавить профиль"><i class="fas fa-plus"></i></button>
+      <button id="ssListDel" title="Удалить профиль" class="btn-danger"><i class="fas fa-trash"></i></button>
+    `;
+
+    panel.appendChild(scroll);
+    panel.appendChild(footer);
+    document.body.appendChild(panel);
+
+    document.getElementById('ssListAdd')?.addEventListener('click', async () => {
+      const list = await Storage.getSoundscapes();
+      const newIdx = list.length;
+      await this.mixer.insertSoundscape(newIdx);
+      await this.mixer.renameSoundscape(newIdx, 'Профиль');
+      await this._refreshSoundscapeList();
+    });
+
+    document.getElementById('ssListDel')?.addEventListener('click', async () => {
+      if (!confirm('Удалить текущий профиль?')) return;
+      document.getElementById('ssListPanel')?.remove();
+      this._ssOutsideOff?.();
+      await this.mixer.removeSoundscape(this.mixer.currentSoundscape);
+    });
+
+    // Close on outside click
+    const onOutside = (e) => {
+      const p = document.getElementById('ssListPanel');
+      const b = document.getElementById('soundscapeList');
+      if (p && !p.contains(e.target) && !b?.contains(e.target)) {
+        p.remove();
+        document.removeEventListener('mousedown', onOutside);
+        this._ssOutsideOff = null;
+      }
+    };
+    this._ssOutsideOff = () => {
+      document.removeEventListener('mousedown', onOutside);
+      this._ssOutsideOff = null;
+    };
+    setTimeout(() => document.addEventListener('mousedown', onOutside), 0);
   }
 
-  async _removeSoundscape() {
-    if (!confirm('Remove this soundscape?')) return;
-    await this.mixer.removeSoundscape(this.mixer.currentSoundscape);
+  _makeSsRow(ss, idx, current) {
+    const row = document.createElement('div');
+    row.className   = 'ss-row' + (idx === current ? ' ss-row-active' : '');
+    row.dataset.idx = String(idx);
+    row.draggable   = true;
+    row.textContent = ss.name || `Профиль ${idx + 1}`;
+
+    // Track drag start to suppress click-on-drag-end
+    let wasDragged = false;
+
+    row.addEventListener('click', async () => {
+      if (wasDragged) { wasDragged = false; return; }
+      document.getElementById('ssListPanel')?.remove();
+      this._ssOutsideOff?.();
+      if (idx !== this.mixer.currentSoundscape) {
+        await this.mixer.setSoundscape(idx);
+      }
+    });
+
+    row.addEventListener('dragstart', e => {
+      wasDragged = true;
+      this._ssDragSrc = idx;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(idx));
+      row.classList.add('ss-row-dragging');
+    });
+
+    row.addEventListener('dragend', () => {
+      this._ssDragSrc = null;
+      document.querySelectorAll('.ss-row-above, .ss-row-below, .ss-row-dragging')
+        .forEach(el => el.classList.remove('ss-row-above', 'ss-row-below', 'ss-row-dragging'));
+      // Reset flag after a tick so click handler (which fires before dragend in some browsers) sees it
+      setTimeout(() => { wasDragged = false; }, 0);
+    });
+
+    row.addEventListener('dragover', e => {
+      if (this._ssDragSrc === null || this._ssDragSrc === idx) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = row.getBoundingClientRect();
+      const upper = e.clientY < rect.top + rect.height / 2;
+      document.querySelectorAll('.ss-row-above, .ss-row-below')
+        .forEach(el => el.classList.remove('ss-row-above', 'ss-row-below'));
+      row.classList.add(upper ? 'ss-row-above' : 'ss-row-below');
+    });
+
+    row.addEventListener('dragleave', e => {
+      if (!row.contains(e.relatedTarget)) {
+        row.classList.remove('ss-row-above', 'ss-row-below');
+      }
+    });
+
+    row.addEventListener('drop', async e => {
+      e.preventDefault();
+      const from = this._ssDragSrc;
+      if (from === null || from === idx) return;
+      const rect    = row.getBoundingClientRect();
+      const upper   = e.clientY < rect.top + rect.height / 2;
+      // insertBefore index (in original array)
+      const insertBefore = upper ? idx : idx + 1;
+      await this._moveSoundscape(from, insertBefore);
+    });
+
+    return row;
+  }
+
+  async _refreshSoundscapeList() {
+    const scroll = document.getElementById('ssListScroll');
+    if (!scroll) return;
+    const soundscapes = await Storage.getSoundscapes();
+    const current = this.mixer.currentSoundscape;
+    scroll.innerHTML = '';
+    soundscapes.forEach((ss, idx) => {
+      scroll.appendChild(this._makeSsRow(ss, idx, current));
+    });
+  }
+
+  async _moveSoundscape(from, insertBefore) {
+    const soundscapes = await Storage.getSoundscapes();
+    const [moved] = soundscapes.splice(from, 1);
+    // Adjust target after removal
+    let to = insertBefore > from ? insertBefore - 1 : insertBefore;
+    if (to < 0) to = 0;
+    if (to > soundscapes.length) to = soundscapes.length;
+    soundscapes.splice(to, 0, moved);
+
+    // Keep currentSoundscape pointing at the same entry
+    let cur = this.mixer.currentSoundscape;
+    if (cur === from) {
+      cur = to;
+    } else if (from < cur && insertBefore > cur) {
+      cur--;
+    } else if (from > cur && insertBefore <= cur) {
+      cur++;
+    }
+    this.mixer.currentSoundscape = cur;
+
+    await Storage.setSoundscapes(soundscapes);
+
+    // Update header name
+    this.mixer.name = soundscapes[cur].name;
+    const nameEl = this._el('soundscapeName');
+    if (nameEl) nameEl.value = this.mixer.name ?? '';
+
+    await this._refreshSoundscapeList();
   }
 
   async _saveChannelVolume(i, val) {
@@ -948,16 +1140,43 @@ export class MixerUI {
 
   // ─── Data export / import ────────────────────────────────────────────────────
 
+  async _exportMidiMappings() {
+    const mappings = this.midi?.getMappings() ?? {};
+    if (!Object.keys(mappings).length) {
+      alert('Нет сохранённых MIDI-маппингов для экспорта.');
+      return;
+    }
+    await window.api.midi.saveMappings(mappings);
+  }
+
+  async _importMidiMappings() {
+    const data = await window.api.midi.loadMappings();
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return;
+    await Storage.setMidiMappings(data);
+    if (this.midi) this.midi.mappings = data;
+    // Refresh mapping controls if mapping mode is active
+    if (this._mappingMode) {
+      this._exitMappingMode();
+      this._enterMappingMode();
+    }
+  }
+
   async _exportData() {
     const soundscapes = await Storage.getSoundscapes();
-    await window.api.data.save(soundscapes);
+    const current = soundscapes[this.mixer.currentSoundscape];
+    if (!current) return;
+    const defaultName = (current.name || `Профиль ${this.mixer.currentSoundscape + 1}`)
+      .replace(/[\\/:*?"<>|]/g, '_');
+    await window.api.data.save(current, defaultName);
   }
 
   async _importData() {
     const data = await window.api.data.load();
     if (!data) return;
     const existing = await Storage.getSoundscapes();
-    await Storage.setSoundscapes(existing.concat(data));
+    // Support both single-profile objects and legacy full-array exports
+    const toAdd = Array.isArray(data) ? data : [data];
+    await Storage.setSoundscapes(existing.concat(toAdd));
     await this.mixer.setSoundscape(this.mixer.currentSoundscape);
   }
 }

@@ -6,6 +6,7 @@ import { Mixer }          from './src/mixer.js';
 import { MixerUI }        from './src/mixerUI.js';
 import { MidiController } from './src/midi.js';
 import { Storage }        from './src/storage.js';
+import { ChannelDrag }    from './src/channelDrag.js';
 
 let mixer;
 let midi;
@@ -42,6 +43,9 @@ async function main() {
   // Apply stored global volume to interface gain
   const vol = await Storage.getVolume();
   mixer.master.effects.interfaceGain.set(vol);
+
+  // Drag-and-drop reordering for channels, ambients, soundboard buttons
+  new ChannelDrag(mixer).bindAll();
 }
 
 main().catch(console.error);
