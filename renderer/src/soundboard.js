@@ -22,11 +22,18 @@ export class Soundboard {
 
   configure(settings) {
     this.stopAll();
-    this.master.setVolume(settings.soundboardGain ?? 0.5);
+    this._applyMasterGain(settings.soundboardGain ?? 0.75);
     for (let i = 0; i < this.soundboardSize; i++) {
       const ch = settings.soundboard[i];
       if (ch) this.channels[i].setSbData(ch);
     }
+  }
+
+  /** Set soundboard master gain directly, bypassing Channel's 1.25 clamp. */
+  _applyMasterGain(gain) {
+    gain = Math.max(0, gain);
+    this.master.settings.volume = gain;
+    if (this.master.effects.gain) this.master.effects.gain.set(gain);
   }
 
   configureSingle(channelNr, settings) {
@@ -128,7 +135,7 @@ export class Soundboard {
 
   async setVolume(volume) {
     this.volume = volume;
-    this.master.setVolume(volume);
+    this._applyMasterGain(volume);
     // Persist
     const soundscapes = await Storage.getSoundscapes();
     soundscapes[this.mixer.currentSoundscape].soundboardGain = volume;

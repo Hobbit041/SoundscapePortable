@@ -239,7 +239,7 @@ export class MidiController {
     }
   }
 
-  _executeRelativeVolumeAction(entityKey, delta) {
+  async _executeRelativeVolumeAction(entityKey, delta) {
     const mixer = this.mixer;
     if (!mixer) return;
 
@@ -247,6 +247,13 @@ export class MidiController {
       const newVol = Math.max(0, Math.min(1.25, mixer.ambientMixer.getMasterVolume() + delta));
       mixer.ambientMixer.setMasterVolume(newVol);
       mixer.ui?.updateAmbientMasterVolume(newVol);
+      const soundscapes = await Storage.getSoundscapes();
+      const ss = soundscapes[mixer.currentSoundscape];
+      if (ss) {
+        if (!ss.ambientMaster) ss.ambientMaster = { volume: 1 };
+        ss.ambientMaster.volume = newVol;
+        await Storage.setSoundscapes(soundscapes);
+      }
       return;
     }
     const m = entityKey.match(/^amb-(\d+)-volume$/);
@@ -257,11 +264,19 @@ export class MidiController {
         const newVol = Math.max(0, Math.min(1.25, ch.settings.volume + delta));
         ch.setVolume(newVol);
         mixer.ui?.updateAmbientChannelVolume(i, newVol);
+        const soundscapes = await Storage.getSoundscapes();
+        const ss = soundscapes[mixer.currentSoundscape];
+        if (ss) {
+          if (!ss.ambient) ss.ambient = [];
+          if (!ss.ambient[i]) ss.ambient[i] = { settings: { volume: 1, name: '' }, soundData: null };
+          ss.ambient[i].settings.volume = newVol;
+          await Storage.setSoundscapes(soundscapes);
+        }
       }
     }
   }
 
-  _executeVolumeAction(entityKey, volume) {
+  async _executeVolumeAction(entityKey, volume) {
     const mixer = this.mixer;
     if (!mixer) return;
     volume = Math.max(0, Math.min(1.25, volume));
@@ -269,11 +284,23 @@ export class MidiController {
     if (entityKey === 'master-volume') {
       mixer.master.setVolume(volume);
       mixer.ui?.updateMasterVolume(volume);
+      const soundscapes = await Storage.getSoundscapes();
+      if (soundscapes[mixer.currentSoundscape]) {
+        soundscapes[mixer.currentSoundscape].master.settings.volume = volume;
+        await Storage.setSoundscapes(soundscapes);
+      }
       return;
     }
     if (entityKey === 'amb-master-volume') {
       mixer.ambientMixer?.setMasterVolume(volume);
       mixer.ui?.updateAmbientMasterVolume(volume);
+      const soundscapes = await Storage.getSoundscapes();
+      const ss = soundscapes[mixer.currentSoundscape];
+      if (ss) {
+        if (!ss.ambientMaster) ss.ambientMaster = { volume: 1 };
+        ss.ambientMaster.volume = volume;
+        await Storage.setSoundscapes(soundscapes);
+      }
       return;
     }
     let m = entityKey.match(/^ch-(\d+)-volume$/);
@@ -281,11 +308,16 @@ export class MidiController {
       const i = +m[1], ch = mixer.channels[i];
       if (ch) {
         if (ch.getLink()) {
-          mixer.setLinkVolumes(volume, i);
+          await mixer.setLinkVolumes(volume, i);  // already saves to storage
           mixer.ui?.updateAllChannelVolumes();
         } else {
           ch.setVolume(volume);
           mixer.ui?.updateChannelVolume(i, volume);
+          const soundscapes = await Storage.getSoundscapes();
+          if (soundscapes[mixer.currentSoundscape]) {
+            soundscapes[mixer.currentSoundscape].channels[i].settings.volume = volume;
+            await Storage.setSoundscapes(soundscapes);
+          }
         }
       }
       return;
@@ -297,6 +329,14 @@ export class MidiController {
       if (ch) {
         ch.setVolume(volume);
         mixer.ui?.updateAmbientChannelVolume(i, volume);
+        const soundscapes = await Storage.getSoundscapes();
+        const ss = soundscapes[mixer.currentSoundscape];
+        if (ss) {
+          if (!ss.ambient) ss.ambient = [];
+          if (!ss.ambient[i]) ss.ambient[i] = { settings: { volume: 1, name: '' }, soundData: null };
+          ss.ambient[i].settings.volume = volume;
+          await Storage.setSoundscapes(soundscapes);
+        }
       }
     }
   }

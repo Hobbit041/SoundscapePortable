@@ -15,20 +15,21 @@
   <header id="header">
     <div class="header-left">
       <span class="app-logo"><i class="fas fa-music"></i> Soundscapes</span>
-      <span id="midiStatus" class="midi-status">MIDI: scanning…</span>
+      <span id="midiStatus" class="midi-status" data-i18n="header.midiStatusScanning"></span>
     </div>
     <div class="header-center">
-      <input id="soundscapeName" type="text" placeholder="Название профиля" spellcheck="false">
-      <button id="soundscapeList" title="Профили"><i class="fas fa-bars"></i></button>
+      <input id="soundscapeName" type="text" data-i18n-placeholder="header.soundscapeNamePlaceholder" spellcheck="false">
+      <button id="soundscapeList" data-i18n-title="header.profilesTitle"><i class="fas fa-bars"></i></button>
+      <button id="settingsBtn"    data-i18n-title="header.settingsTitle"><i class="fas fa-cog"></i></button>
     </div>
     <div class="header-right">
-      <button id="btnImport" title="Import .soundscapeData"><i class="fas fa-file-import"></i></button>
-      <button id="btnExport" title="Export .soundscapeData"><i class="fas fa-file-export"></i></button>
+      <button id="btnImport" data-i18n-title="header.importTitle"><i class="fas fa-file-import"></i></button>
+      <button id="btnExport" data-i18n-title="header.exportTitle"><i class="fas fa-file-export"></i></button>
     </div>
     <div class="win-controls">
-      <button class="win-btn win-minimize" id="winMinimize" title="Свернуть">&#8722;</button>
-      <button class="win-btn win-maximize" id="winMaximize" title="Развернуть">&#9633;</button>
-      <button class="win-btn win-close"    id="winClose"    title="Закрыть">&#10005;</button>
+      <button class="win-btn win-minimize" id="winMinimize" data-i18n-title="header.winMinimize">&#8722;</button>
+      <button class="win-btn win-maximize" id="winMaximize" data-i18n-title="header.winMaximize">&#9633;</button>
+      <button class="win-btn win-close"    id="winClose"    data-i18n-title="header.winClose">&#10005;</button>
     </div>
   </header>
 
@@ -44,12 +45,12 @@
         <!-- Channel strips 0-7 -->
         <div class="channel-strip" id="box-0" data-channel="0">
           <div class="ch-top">
-            <button class="btn-config" id="config-0" title="Load audio file">
+            <button class="btn-config" id="config-0" data-i18n-title="mixer.channelLoadAudioTitle">
               <i class="fas fa-folder-open"></i>
             </button>
-            <button class="btn-fx" id="fx-0" title="FX">FX</button>
+            <button class="btn-fx" id="fx-0">FX</button>
           </div>
-          <input class="ch-name" id="channelName-0" type="text" placeholder="Channel 1" spellcheck="false">
+          <input class="ch-name" id="channelName-0" type="text" spellcheck="false">
           <div class="ch-buttons">
             <button class="btn-mute" id="mute-0">M</button>
             <button class="btn-solo" id="solo-0">S</button>
@@ -64,17 +65,17 @@
           <div class="ch-label">1</div>
           <button class="btn-play-ch" id="playSound-0"><i class="fas fa-play"></i></button>
           <div class="ch-nav">
-            <button class="btn-nav-ch" id="prevTrack-0" title="Предыдущий трек">‹</button>
-            <button class="btn-nav-ch" id="nextTrack-0" title="Следующий трек">›</button>
+            <button class="btn-nav-ch" id="prevTrack-0" data-i18n-title="mixer.prevTrack">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-0" data-i18n-title="mixer.nextTrack">›</button>
           </div>
         </div>
 
         <div class="channel-strip" id="box-1" data-channel="1">
           <div class="ch-top">
-            <button class="btn-config" id="config-1" title="Load audio file"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-config" id="config-1" data-i18n-title="mixer.channelLoadAudioTitle"><i class="fas fa-folder-open"></i></button>
             <button class="btn-fx" id="fx-1">FX</button>
           </div>
-          <input class="ch-name" id="channelName-1" type="text" placeholder="Channel 2" spellcheck="false">
+          <input class="ch-name" id="channelName-1" type="text" spellcheck="false">
           <div class="ch-buttons">
             <button class="btn-mute" id="mute-1">M</button>
             <button class="btn-solo" id="solo-1">S</button>
@@ -89,17 +90,17 @@
           <div class="ch-label">2</div>
           <button class="btn-play-ch" id="playSound-1"><i class="fas fa-play"></i></button>
           <div class="ch-nav">
-            <button class="btn-nav-ch" id="prevTrack-1" title="Предыдущий трек">‹</button>
-            <button class="btn-nav-ch" id="nextTrack-1" title="Следующий трек">›</button>
+            <button class="btn-nav-ch" id="prevTrack-1" data-i18n-title="mixer.prevTrack">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-1" data-i18n-title="mixer.nextTrack">›</button>
           </div>
         </div>
 
         <div class="channel-strip" id="box-2" data-channel="2">
           <div class="ch-top">
-            <button class="btn-config" id="config-2"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-config" id="config-2" data-i18n-title="mixer.channelLoadAudioTitle"><i class="fas fa-folder-open"></i></button>
             <button class="btn-fx" id="fx-2">FX</button>
           </div>
-          <input class="ch-name" id="channelName-2" type="text" placeholder="Channel 3" spellcheck="false">
+          <input class="ch-name" id="channelName-2" type="text" spellcheck="false">
           <div class="ch-buttons">
             <button class="btn-mute" id="mute-2">M</button>
             <button class="btn-solo" id="solo-2">S</button>
@@ -114,17 +115,17 @@
           <div class="ch-label">3</div>
           <button class="btn-play-ch" id="playSound-2"><i class="fas fa-play"></i></button>
           <div class="ch-nav">
-            <button class="btn-nav-ch" id="prevTrack-2" title="Предыдущий трек">‹</button>
-            <button class="btn-nav-ch" id="nextTrack-2" title="Следующий трек">›</button>
+            <button class="btn-nav-ch" id="prevTrack-2" data-i18n-title="mixer.prevTrack">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-2" data-i18n-title="mixer.nextTrack">›</button>
           </div>
         </div>
 
         <div class="channel-strip" id="box-3" data-channel="3">
           <div class="ch-top">
-            <button class="btn-config" id="config-3"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-config" id="config-3" data-i18n-title="mixer.channelLoadAudioTitle"><i class="fas fa-folder-open"></i></button>
             <button class="btn-fx" id="fx-3">FX</button>
           </div>
-          <input class="ch-name" id="channelName-3" type="text" placeholder="Channel 4" spellcheck="false">
+          <input class="ch-name" id="channelName-3" type="text" spellcheck="false">
           <div class="ch-buttons">
             <button class="btn-mute" id="mute-3">M</button>
             <button class="btn-solo" id="solo-3">S</button>
@@ -139,17 +140,17 @@
           <div class="ch-label">4</div>
           <button class="btn-play-ch" id="playSound-3"><i class="fas fa-play"></i></button>
           <div class="ch-nav">
-            <button class="btn-nav-ch" id="prevTrack-3" title="Предыдущий трек">‹</button>
-            <button class="btn-nav-ch" id="nextTrack-3" title="Следующий трек">›</button>
+            <button class="btn-nav-ch" id="prevTrack-3" data-i18n-title="mixer.prevTrack">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-3" data-i18n-title="mixer.nextTrack">›</button>
           </div>
         </div>
 
         <div class="channel-strip" id="box-4" data-channel="4">
           <div class="ch-top">
-            <button class="btn-config" id="config-4"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-config" id="config-4" data-i18n-title="mixer.channelLoadAudioTitle"><i class="fas fa-folder-open"></i></button>
             <button class="btn-fx" id="fx-4">FX</button>
           </div>
-          <input class="ch-name" id="channelName-4" type="text" placeholder="Channel 5" spellcheck="false">
+          <input class="ch-name" id="channelName-4" type="text" spellcheck="false">
           <div class="ch-buttons">
             <button class="btn-mute" id="mute-4">M</button>
             <button class="btn-solo" id="solo-4">S</button>
@@ -164,17 +165,17 @@
           <div class="ch-label">5</div>
           <button class="btn-play-ch" id="playSound-4"><i class="fas fa-play"></i></button>
           <div class="ch-nav">
-            <button class="btn-nav-ch" id="prevTrack-4" title="Предыдущий трек">‹</button>
-            <button class="btn-nav-ch" id="nextTrack-4" title="Следующий трек">›</button>
+            <button class="btn-nav-ch" id="prevTrack-4" data-i18n-title="mixer.prevTrack">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-4" data-i18n-title="mixer.nextTrack">›</button>
           </div>
         </div>
 
         <div class="channel-strip" id="box-5" data-channel="5">
           <div class="ch-top">
-            <button class="btn-config" id="config-5"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-config" id="config-5" data-i18n-title="mixer.channelLoadAudioTitle"><i class="fas fa-folder-open"></i></button>
             <button class="btn-fx" id="fx-5">FX</button>
           </div>
-          <input class="ch-name" id="channelName-5" type="text" placeholder="Channel 6" spellcheck="false">
+          <input class="ch-name" id="channelName-5" type="text" spellcheck="false">
           <div class="ch-buttons">
             <button class="btn-mute" id="mute-5">M</button>
             <button class="btn-solo" id="solo-5">S</button>
@@ -189,17 +190,17 @@
           <div class="ch-label">6</div>
           <button class="btn-play-ch" id="playSound-5"><i class="fas fa-play"></i></button>
           <div class="ch-nav">
-            <button class="btn-nav-ch" id="prevTrack-5" title="Предыдущий трек">‹</button>
-            <button class="btn-nav-ch" id="nextTrack-5" title="Следующий трек">›</button>
+            <button class="btn-nav-ch" id="prevTrack-5" data-i18n-title="mixer.prevTrack">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-5" data-i18n-title="mixer.nextTrack">›</button>
           </div>
         </div>
 
         <div class="channel-strip" id="box-6" data-channel="6">
           <div class="ch-top">
-            <button class="btn-config" id="config-6"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-config" id="config-6" data-i18n-title="mixer.channelLoadAudioTitle"><i class="fas fa-folder-open"></i></button>
             <button class="btn-fx" id="fx-6">FX</button>
           </div>
-          <input class="ch-name" id="channelName-6" type="text" placeholder="Channel 7" spellcheck="false">
+          <input class="ch-name" id="channelName-6" type="text" spellcheck="false">
           <div class="ch-buttons">
             <button class="btn-mute" id="mute-6">M</button>
             <button class="btn-solo" id="solo-6">S</button>
@@ -214,17 +215,17 @@
           <div class="ch-label">7</div>
           <button class="btn-play-ch" id="playSound-6"><i class="fas fa-play"></i></button>
           <div class="ch-nav">
-            <button class="btn-nav-ch" id="prevTrack-6" title="Предыдущий трек">‹</button>
-            <button class="btn-nav-ch" id="nextTrack-6" title="Следующий трек">›</button>
+            <button class="btn-nav-ch" id="prevTrack-6" data-i18n-title="mixer.prevTrack">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-6" data-i18n-title="mixer.nextTrack">›</button>
           </div>
         </div>
 
         <div class="channel-strip" id="box-7" data-channel="7">
           <div class="ch-top">
-            <button class="btn-config" id="config-7"><i class="fas fa-folder-open"></i></button>
+            <button class="btn-config" id="config-7" data-i18n-title="mixer.channelLoadAudioTitle"><i class="fas fa-folder-open"></i></button>
             <button class="btn-fx" id="fx-7">FX</button>
           </div>
-          <input class="ch-name" id="channelName-7" type="text" placeholder="Channel 8" spellcheck="false">
+          <input class="ch-name" id="channelName-7" type="text" spellcheck="false">
           <div class="ch-buttons">
             <button class="btn-mute" id="mute-7">M</button>
             <button class="btn-solo" id="solo-7">S</button>
@@ -239,15 +240,15 @@
           <div class="ch-label">8</div>
           <button class="btn-play-ch" id="playSound-7"><i class="fas fa-play"></i></button>
           <div class="ch-nav">
-            <button class="btn-nav-ch" id="prevTrack-7" title="Предыдущий трек">‹</button>
-            <button class="btn-nav-ch" id="nextTrack-7" title="Следующий трек">›</button>
+            <button class="btn-nav-ch" id="prevTrack-7" data-i18n-title="mixer.prevTrack">‹</button>
+            <button class="btn-nav-ch" id="nextTrack-7" data-i18n-title="mixer.nextTrack">›</button>
           </div>
         </div>
 
         <!-- MASTER strip -->
         <div class="channel-strip master-strip" id="box-master">
           <div class="ch-top" style="justify-content:center">
-            <span class="master-label-top">Мастер</span>
+            <span class="master-label-top" data-i18n="mixer.masterLabel"></span>
           </div>
           <div class="ch-buttons" style="justify-content:center; margin-top:4px">
             <button class="btn-mute" id="mute-master">M</button>
@@ -258,7 +259,7 @@
           <div class="ch-vol-number-wrap">
             <input class="ch-vol-number" id="volumeNumber-master" type="number" min="0" max="125" value="100">
           </div>
-          <div class="ch-label" style="font-size:9px; letter-spacing:1px">Музыка и амбиенты</div>
+          <div class="ch-label" style="font-size:9px; letter-spacing:1px" data-i18n="mixer.masterSubLabel"></div>
           <button class="btn-play btn-play-master" id="playMix"><i class="fas fa-play"></i></button>
         </div>
 
@@ -269,7 +270,7 @@
 
         <div class="amb-strip" id="ambBox-0">
           <button class="btn-config amb-cfg" id="ambConfig-0"><i class="fas fa-folder-open"></i></button>
-          <input class="ch-name" id="ambName-0" type="text" placeholder="Ambient 1" spellcheck="false">
+          <input class="ch-name" id="ambName-0" type="text" spellcheck="false">
           <div class="amb-fader-wrap">
             <input class="amb-fader" id="ambSlider-0" type="range" min="0" max="125" step="1" value="100" orient="vertical">
           </div>
@@ -279,7 +280,7 @@
 
         <div class="amb-strip" id="ambBox-1">
           <button class="btn-config amb-cfg" id="ambConfig-1"><i class="fas fa-folder-open"></i></button>
-          <input class="ch-name" id="ambName-1" type="text" placeholder="Ambient 2" spellcheck="false">
+          <input class="ch-name" id="ambName-1" type="text" spellcheck="false">
           <div class="amb-fader-wrap">
             <input class="amb-fader" id="ambSlider-1" type="range" min="0" max="125" step="1" value="100" orient="vertical">
           </div>
@@ -289,7 +290,7 @@
 
         <div class="amb-strip" id="ambBox-2">
           <button class="btn-config amb-cfg" id="ambConfig-2"><i class="fas fa-folder-open"></i></button>
-          <input class="ch-name" id="ambName-2" type="text" placeholder="Ambient 3" spellcheck="false">
+          <input class="ch-name" id="ambName-2" type="text" spellcheck="false">
           <div class="amb-fader-wrap">
             <input class="amb-fader" id="ambSlider-2" type="range" min="0" max="125" step="1" value="100" orient="vertical">
           </div>
@@ -299,7 +300,7 @@
 
         <div class="amb-strip" id="ambBox-3">
           <button class="btn-config amb-cfg" id="ambConfig-3"><i class="fas fa-folder-open"></i></button>
-          <input class="ch-name" id="ambName-3" type="text" placeholder="Ambient 4" spellcheck="false">
+          <input class="ch-name" id="ambName-3" type="text" spellcheck="false">
           <div class="amb-fader-wrap">
             <input class="amb-fader" id="ambSlider-3" type="range" min="0" max="125" step="1" value="100" orient="vertical">
           </div>
@@ -309,7 +310,7 @@
 
         <div class="amb-strip" id="ambBox-4">
           <button class="btn-config amb-cfg" id="ambConfig-4"><i class="fas fa-folder-open"></i></button>
-          <input class="ch-name" id="ambName-4" type="text" placeholder="Ambient 5" spellcheck="false">
+          <input class="ch-name" id="ambName-4" type="text" spellcheck="false">
           <div class="amb-fader-wrap">
             <input class="amb-fader" id="ambSlider-4" type="range" min="0" max="125" step="1" value="100" orient="vertical">
           </div>
@@ -319,7 +320,7 @@
 
         <div class="amb-strip" id="ambBox-5">
           <button class="btn-config amb-cfg" id="ambConfig-5"><i class="fas fa-folder-open"></i></button>
-          <input class="ch-name" id="ambName-5" type="text" placeholder="Ambient 6" spellcheck="false">
+          <input class="ch-name" id="ambName-5" type="text" spellcheck="false">
           <div class="amb-fader-wrap">
             <input class="amb-fader" id="ambSlider-5" type="range" min="0" max="125" step="1" value="100" orient="vertical">
           </div>
@@ -329,7 +330,7 @@
 
         <div class="amb-strip" id="ambBox-6">
           <button class="btn-config amb-cfg" id="ambConfig-6"><i class="fas fa-folder-open"></i></button>
-          <input class="ch-name" id="ambName-6" type="text" placeholder="Ambient 7" spellcheck="false">
+          <input class="ch-name" id="ambName-6" type="text" spellcheck="false">
           <div class="amb-fader-wrap">
             <input class="amb-fader" id="ambSlider-6" type="range" min="0" max="125" step="1" value="100" orient="vertical">
           </div>
@@ -339,7 +340,7 @@
 
         <div class="amb-strip" id="ambBox-7">
           <button class="btn-config amb-cfg" id="ambConfig-7"><i class="fas fa-folder-open"></i></button>
-          <input class="ch-name" id="ambName-7" type="text" placeholder="Ambient 8" spellcheck="false">
+          <input class="ch-name" id="ambName-7" type="text" spellcheck="false">
           <div class="amb-fader-wrap">
             <input class="amb-fader" id="ambSlider-7" type="range" min="0" max="125" step="1" value="100" orient="vertical">
           </div>
@@ -349,11 +350,11 @@
 
         <!-- Ambient master -->
         <div class="amb-strip amb-master-strip" id="ambBox-master">
-          <span class="master-label-top">Мастер</span>
+          <span class="master-label-top" data-i18n="mixer.masterLabel"></span>
           <div class="amb-fader-wrap">
             <input class="amb-fader" id="ambSlider-master" type="range" min="0" max="125" step="1" value="100" orient="vertical">
           </div>
-          <div class="ch-label" style="font-size:9px; letter-spacing:1px">Фоновые звуки</div>
+          <div class="ch-label" style="font-size:9px; letter-spacing:1px" data-i18n="ambient.masterSubLabel"></div>
         </div>
 
       </div><!-- /ambient-strip-row -->
@@ -362,7 +363,7 @@
       <div id="scenes-section">
         <div id="scenes-row">
           <!-- Scene buttons injected here dynamically -->
-          <button id="addScene" class="btn-add-scene" title="Добавить сцену">+</button>
+          <button id="addScene" class="btn-add-scene" data-i18n-title="scenes.addTitle">+</button>
         </div>
       </div>
 
@@ -371,12 +372,12 @@
     <!-- ── SOUNDBOARD SECTION ─────────────────────────────────────────── -->
     <section id="soundboard-section">
       <div id="soundboard-header">
-        <span class="sb-title">Звуковая панель</span>
+        <span class="sb-title" data-i18n="soundboard.title"></span>
         <div class="sb-controls">
-          <label>Vol</label>
+          <label data-i18n="soundboard.volumeLabel"></label>
           <input id="sbVolume" type="range" min="0" max="125" step="1" value="50">
-          <button id="sbStopAll" class="btn-stop-sb" title="Остановить все звуки саундборда">
-            <i class="fas fa-stop"></i> Остановить звуки
+          <button id="sbStopAll" class="btn-stop-sb" data-i18n-title="soundboard.stopAllTitle">
+            <i class="fas fa-stop"></i> <span data-i18n="soundboard.stopAllText"></span>
           </button>
         </div>
       </div>
@@ -434,7 +435,7 @@
       <div id="sb-scenes-section">
         <div id="sb-scenes-row">
           <!-- SB scene buttons injected dynamically -->
-          <button id="addSbScene" class="btn-add-scene" title="Добавить сцену саундборда">+</button>
+          <button id="addSbScene" class="btn-add-scene" data-i18n-title="scenes.sbAddTitle">+</button>
         </div>
       </div>
 

@@ -43,5 +43,15 @@ contextBridge.exposeInMainWorld('api', {
     maximize:    () => ipcRenderer.invoke('window-maximize'),
     close:       () => ipcRenderer.invoke('window-close'),
     isMaximized: () => ipcRenderer.invoke('window-is-maximized'),
-  }
+  },
+
+  // ─── Crash log ────────────────────────────────────────────────────────────
+  log: {
+    crash:      (source, message, stack, detail) => ipcRenderer.invoke('log-crash', source, message, stack, detail),
+    getPath:    () => ipcRenderer.invoke('get-log-path'),
+    openFolder: () => ipcRenderer.invoke('open-log-folder'),
+  },
+
+  // ─── Translations ─────────────────────────────────────────────────────────
+  getI18n: () => ipcRenderer.invoke('get-i18n'),
 });

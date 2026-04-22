@@ -6,6 +6,7 @@
  */
 import { Storage }        from './storage.js';
 import { PlaylistDialog } from './playlistDialog.js';
+import { t, tFileCount }  from './i18n.js';
 
 export class ChannelConfigDialog {
   constructor(channel, mixer, channelNr) {
@@ -40,61 +41,61 @@ export class ChannelConfigDialog {
     panel.className = 'fx-panel cfg-panel';
     panel.innerHTML = `
       <div class="fx-header">
-        <span>Настройка — CH ${this.channelNr + 1}</span>
+        <span>${t('channelConfig.title', { n: this.channelNr + 1 })}</span>
         <div style="display:flex;gap:4px;align-items:center">
-          <button class="cfg-reset-btn" id="chCfgReset-${this.channelNr}" title="Очистить дорожку">🗑</button>
+          <button class="cfg-reset-btn" id="chCfgReset-${this.channelNr}" title="${t('channelConfig.clearTitle')}">🗑</button>
           <button class="fx-close" id="chCfgClose-${this.channelNr}">✕</button>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Источники</div>
+        <div class="fx-section-title">${t('channelConfig.sourcesSection')}</div>
         <div class="fx-row">
-          <span class="cfg-src-name">${plCount} файл${_plWord(plCount)}</span>
-          <button id="chCfgPlaylist-${this.channelNr}"><i class="fas fa-list"></i> Открыть плейлист</button>
+          <span class="cfg-src-name">${tFileCount(plCount)}</span>
+          <button id="chCfgPlaylist-${this.channelNr}"><i class="fas fa-list"></i> ${t('channelConfig.openPlaylist')}</button>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Повтор</div>
+        <div class="fx-section-title">${t('channelConfig.repeatSection')}</div>
         <div class="fx-row">
-          <label class="cfg-label">Режим</label>
+          <label class="cfg-label">${t('channelConfig.repeatMode')}</label>
           <select class="cfg-select" id="chCfgRepeat-${this.channelNr}">
-            <option value="none"   ${rpt.repeat === 'none'   ? 'selected' : ''}>Нет</option>
-            <option value="single" ${rpt.repeat === 'single' ? 'selected' : ''}>Зациклено</option>
-            <option value="all"    ${rpt.repeat === 'all'    ? 'selected' : ''}>Все файлы</option>
+            <option value="none"   ${rpt.repeat === 'none'   ? 'selected' : ''}>${t('channelConfig.repeatNone')}</option>
+            <option value="single" ${rpt.repeat === 'single' ? 'selected' : ''}>${t('channelConfig.repeatSingle')}</option>
+            <option value="all"    ${rpt.repeat === 'all'    ? 'selected' : ''}>${t('channelConfig.repeatAll')}</option>
           </select>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Мин. задержка</label>
+          <label class="cfg-label">${t('channelConfig.minDelay')}</label>
           <input class="cfg-num" type="number" id="chCfgMinDelay-${this.channelNr}" min="0" step="0.1" value="${rpt.minDelay ?? 0}">
           <span class="fx-row-unit">s</span>
-          <label class="cfg-label">Макс. задержка</label>
+          <label class="cfg-label">${t('channelConfig.maxDelay')}</label>
           <input class="cfg-num" type="number" id="chCfgMaxDelay-${this.channelNr}" min="0" step="0.1" value="${rpt.maxDelay ?? 0}">
           <span class="fx-row-unit">s</span>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Скорость воспроизведения</div>
+        <div class="fx-section-title">${t('channelConfig.playbackRateSection')}</div>
         <div class="fx-row">
-          <label class="cfg-label">Скорость</label>
+          <label class="cfg-label">${t('channelConfig.rate')}</label>
           <input type="range" id="chCfgRate-${this.channelNr}" min="25" max="400" step="1" value="${Math.round((pbr.rate ?? 1) * 100)}">
           <span class="fx-row-val" id="chCfgRateVal-${this.channelNr}">${(pbr.rate ?? 1).toFixed(2)}×</span>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Не менять высоту</label>
+          <label class="cfg-label">${t('channelConfig.preservePitch')}</label>
           <input type="checkbox" id="chCfgPreservePitch-${this.channelNr}" ${pbr.preservePitch ? 'checked' : ''}>
-          <label class="cfg-label" style="margin-left:12px">Случайная скорость</label>
+          <label class="cfg-label" style="margin-left:12px">${t('channelConfig.randomRate')}</label>
           <input type="range" id="chCfgRateRandom-${this.channelNr}" min="0" max="200" step="1" value="${Math.round((pbr.random ?? 0) * 100)}">
           <span class="fx-row-val" id="chCfgRateRandomVal-${this.channelNr}">${(pbr.random ?? 0).toFixed(2)}</span>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Доп. настройки</div>
+        <div class="fx-section-title">${t('channelConfig.additionalSection')}</div>
         <div class="fx-row">
-          <label class="cfg-label">Баланс L/R</label>
+          <label class="cfg-label">${t('channelConfig.pan')}</label>
           <input type="range" id="chCfgPan-${this.channelNr}" min="-25" max="25" step="1" value="${Math.round(pan * 25)}">
           <span class="fx-row-val" id="chCfgPanVal-${this.channelNr}">${pan === 0 ? 'C' : (pan > 0 ? 'R' : 'L') + Math.round(Math.abs(pan * 100)) + '%'}</span>
         </div>
@@ -111,15 +112,15 @@ export class ChannelConfigDialog {
           <input type="checkbox" id="chCfgSkipTiming-${this.channelNr}" ${tmg.skipFirstTiming ? 'checked' : ''}>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Нарастание</label>
+          <label class="cfg-label">${t('channelConfig.fadeIn')}</label>
           <input class="cfg-num" type="number" id="chCfgFadeIn-${this.channelNr}" min="0" step="0.1" value="${tmg.fadeIn ?? 0}">
           <span class="fx-row-unit">s</span>
-          <label class="cfg-label">Затухание</label>
+          <label class="cfg-label">${t('channelConfig.fadeOut')}</label>
           <input class="cfg-num" type="number" id="chCfgFadeOut-${this.channelNr}" min="0" step="0.1" value="${tmg.fadeOut ?? 0}">
           <span class="fx-row-unit">s</span>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Воспроизводить при смене сцен</label>
+          <label class="cfg-label">${t('channelConfig.autoPlay')}</label>
           <input type="checkbox" id="chCfgAutoPlay-${this.channelNr}" ${autoPlay ? 'checked' : ''}>
         </div>
         <div class="fx-row" style="display:none">
@@ -143,7 +144,7 @@ export class ChannelConfigDialog {
 
     // ── Reset ──
     document.getElementById(`chCfgReset-${i}`)?.addEventListener('click', async () => {
-      if (!confirm('Вы точно хотите очистить содержимое этой дорожки?')) return;
+      if (!confirm(t('channelConfig.clearConfirm'))) return;
       await this.mixer.clearChannel(i);
       document.getElementById(`chCfgPanel-${i}`)?.remove();
     });
@@ -151,7 +152,7 @@ export class ChannelConfigDialog {
     // ── Источники ──
     document.getElementById(`chCfgPlaylist-${i}`)?.addEventListener('click', () => {
       new PlaylistDialog({
-        title:         `Плейлист — CH ${i + 1}`,
+        title:         t('channelConfig.playlistTitle', { n: i + 1 }),
         panelId:       `ch-${i}`,
         getSoundData:  async () => {
           const ss = await Storage.getSoundscapes();
@@ -279,8 +280,6 @@ export class ChannelConfigDialog {
     await Storage.setSoundscapes(soundscapes);
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
-
   // ── Drag ─────────────────────────────────────────────────────────────────────
 
   _makeDraggable(el) {
@@ -304,12 +303,4 @@ export class ChannelConfigDialog {
       document.addEventListener('mouseup',   onUp);
     });
   }
-}
-
-function _plWord(n) {
-  if (n % 100 >= 11 && n % 100 <= 19) return 'ов';
-  const r = n % 10;
-  if (r === 1) return '';
-  if (r >= 2 && r <= 4) return 'а';
-  return 'ов';
 }

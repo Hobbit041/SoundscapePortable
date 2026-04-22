@@ -6,6 +6,7 @@
  */
 import { Storage }        from './storage.js';
 import { PlaylistDialog } from './playlistDialog.js';
+import { t, tFileCount }  from './i18n.js';
 
 export class SoundboardConfigDialog {
   constructor(soundboard, mixer, btnNr) {
@@ -40,91 +41,91 @@ export class SoundboardConfigDialog {
     panel.className = 'fx-panel cfg-panel';
     panel.innerHTML = `
       <div class="fx-header">
-        <span>Настройка — SB ${this.btnNr + 1}</span>
+        <span>${t('soundboardConfig.title', { n: this.btnNr + 1 })}</span>
         <div style="display:flex;gap:4px;align-items:center">
-          <button class="cfg-reset-btn" id="sbCfgReset-${this.btnNr}" title="Очистить кнопку">🗑</button>
+          <button class="cfg-reset-btn" id="sbCfgReset-${this.btnNr}" title="${t('soundboardConfig.clearTitle')}">🗑</button>
           <button class="fx-close" id="sbCfgClose-${this.btnNr}">✕</button>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Название</div>
+        <div class="fx-section-title">${t('soundboardConfig.nameSection')}</div>
         <div class="fx-row">
           <input class="cfg-text" type="text" id="sbCfgName-${this.btnNr}"
             value="${(data.name ?? '').replace(/"/g, '&quot;')}"
-            placeholder="Название кнопки" spellcheck="false">
+            placeholder="${t('soundboardConfig.namePlaceholder')}" spellcheck="false">
         </div>
       </div>
 
       <div class="fx-section">
         <div class="fx-row">
-          <label class="cfg-label">Прервать воспроизведение</label>
+          <label class="cfg-label">${t('soundboardConfig.interrupt')}</label>
           <input type="checkbox" id="sbCfgInterrupt-${this.btnNr}" ${interrupt ? 'checked' : ''}>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Источники</div>
+        <div class="fx-section-title">${t('soundboardConfig.sourcesSection')}</div>
         <div class="fx-row">
-          <span class="cfg-src-name">${plCount} файл${_plWord(plCount)}</span>
-          <button id="sbCfgPlaylist-${this.btnNr}"><i class="fas fa-list"></i> Открыть плейлист</button>
+          <span class="cfg-src-name">${tFileCount(plCount)}</span>
+          <button id="sbCfgPlaylist-${this.btnNr}"><i class="fas fa-list"></i> ${t('soundboardConfig.openPlaylist')}</button>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Изображение</div>
+        <div class="fx-section-title">${t('soundboardConfig.imageSection')}</div>
         <div class="fx-row">
           <span class="cfg-src-name" id="sbCfgImgName-${this.btnNr}">${imgName}</span>
-          <button id="sbCfgPickImg-${this.btnNr}"><i class="fas fa-image"></i> Выбрать</button>
-          <button id="sbCfgClearImg-${this.btnNr}" title="Убрать изображение">✕</button>
+          <button id="sbCfgPickImg-${this.btnNr}"><i class="fas fa-image"></i> ${t('soundboardConfig.pickImage')}</button>
+          <button id="sbCfgClearImg-${this.btnNr}" title="${t('soundboardConfig.clearImageTitle')}">✕</button>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Громкость</div>
+        <div class="fx-section-title">${t('soundboardConfig.volumeSection')}</div>
         <div class="fx-row">
-          <label class="cfg-label">Громкость</label>
+          <label class="cfg-label">${t('soundboardConfig.volume')}</label>
           <input type="range" id="sbCfgVol-${this.btnNr}" min="0" max="125" step="1" value="${vol}">
           <span class="fx-row-val" id="sbCfgVolVal-${this.btnNr}">${vol}%</span>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Случайная ±</label>
+          <label class="cfg-label">${t('soundboardConfig.randomVolume')}</label>
           <input type="range" id="sbCfgRVol-${this.btnNr}" min="0" max="100" step="1" value="${rvol}">
           <span class="fx-row-val" id="sbCfgRVolVal-${this.btnNr}">${rvol}%</span>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Повтор</div>
+        <div class="fx-section-title">${t('soundboardConfig.repeatSection')}</div>
         <div class="fx-row">
-          <label class="cfg-label">Режим</label>
+          <label class="cfg-label">${t('soundboardConfig.repeatMode')}</label>
           <select class="cfg-select" id="sbCfgRepeat-${this.btnNr}">
-            <option value="none"   ${rpt.repeat === 'none'   ? 'selected' : ''}>Нет</option>
-            <option value="single" ${rpt.repeat === 'single' ? 'selected' : ''}>Зациклено</option>
-            <option value="all"    ${rpt.repeat === 'all'    ? 'selected' : ''}>Все файлы</option>
+            <option value="none"   ${rpt.repeat === 'none'   ? 'selected' : ''}>${t('soundboardConfig.repeatNone')}</option>
+            <option value="single" ${rpt.repeat === 'single' ? 'selected' : ''}>${t('soundboardConfig.repeatSingle')}</option>
+            <option value="all"    ${rpt.repeat === 'all'    ? 'selected' : ''}>${t('soundboardConfig.repeatAll')}</option>
           </select>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Мин. задержка</label>
+          <label class="cfg-label">${t('soundboardConfig.minDelay')}</label>
           <input class="cfg-num" type="number" id="sbCfgMinDelay-${this.btnNr}" min="0" step="0.1" value="${rpt.minDelay ?? 0}">
           <span class="fx-row-unit">s</span>
-          <label class="cfg-label">Макс. задержка</label>
+          <label class="cfg-label">${t('soundboardConfig.maxDelay')}</label>
           <input class="cfg-num" type="number" id="sbCfgMaxDelay-${this.btnNr}" min="0" step="0.1" value="${rpt.maxDelay ?? 0}">
           <span class="fx-row-unit">s</span>
         </div>
       </div>
 
       <div class="fx-section">
-        <div class="fx-section-title">Скорость воспроизведения</div>
+        <div class="fx-section-title">${t('soundboardConfig.playbackRateSection')}</div>
         <div class="fx-row">
-          <label class="cfg-label">Скорость</label>
+          <label class="cfg-label">${t('soundboardConfig.rate')}</label>
           <input type="range" id="sbCfgRate-${this.btnNr}" min="25" max="400" step="1" value="${Math.round((pbr.rate ?? 1) * 100)}">
           <span class="fx-row-val" id="sbCfgRateVal-${this.btnNr}">${(pbr.rate ?? 1).toFixed(2)}×</span>
         </div>
         <div class="fx-row">
-          <label class="cfg-label">Не менять высоту</label>
+          <label class="cfg-label">${t('soundboardConfig.preservePitch')}</label>
           <input type="checkbox" id="sbCfgPreservePitch-${this.btnNr}" ${pbr.preservePitch ? 'checked' : ''}>
-          <label class="cfg-label" style="margin-left:12px">Случайная скорость</label>
+          <label class="cfg-label" style="margin-left:12px">${t('soundboardConfig.randomRate')}</label>
           <input type="range" id="sbCfgRateRandom-${this.btnNr}" min="0" max="200" step="1" value="${Math.round((pbr.random ?? 0) * 100)}">
           <span class="fx-row-val" id="sbCfgRateRandomVal-${this.btnNr}">${(pbr.random ?? 0).toFixed(2)}</span>
         </div>
@@ -145,7 +146,7 @@ export class SoundboardConfigDialog {
 
     // ── Reset ──
     document.getElementById(`sbCfgReset-${i}`)?.addEventListener('click', async () => {
-      if (!confirm('Вы точно хотите очистить содержимое этой кнопки?')) return;
+      if (!confirm(t('soundboardConfig.clearConfirm'))) return;
       await this.mixer.clearSoundboardButton(i);
       document.getElementById(`sbCfgPanel-${i}`)?.remove();
     });
@@ -166,7 +167,7 @@ export class SoundboardConfigDialog {
     // ── Источники ──
     document.getElementById(`sbCfgPlaylist-${i}`)?.addEventListener('click', () => {
       new PlaylistDialog({
-        title:         `Плейлист — SB ${i + 1}`,
+        title:         t('soundboardConfig.playlistTitle', { n: i + 1 }),
         panelId:       `sb-${i}`,
         mode:          'soundboard',
         getSoundData:  async () => {
@@ -305,12 +306,4 @@ export class SoundboardConfigDialog {
       document.addEventListener('mouseup',   onUp);
     });
   }
-}
-
-function _plWord(n) {
-  if (n % 100 >= 11 && n % 100 <= 19) return 'ов';
-  const r = n % 10;
-  if (r === 1) return '';
-  if (r >= 2 && r <= 4) return 'а';
-  return 'ов';
 }

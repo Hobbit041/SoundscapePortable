@@ -7,6 +7,7 @@ import { MixerUI }        from './src/mixerUI.js';
 import { MidiController } from './src/midi.js';
 import { Storage }        from './src/storage.js';
 import { ChannelDrag }    from './src/channelDrag.js';
+import { initI18n, t }   from './src/i18n.js';
 
 let mixer;
 let midi;
@@ -18,11 +19,27 @@ document.getElementById('winMaximize')?.addEventListener('click', async () => {
   await window.api.win.maximize();
   const maximized = await window.api.win.isMaximized();
   const btn = document.getElementById('winMaximize');
-  if (btn) btn.title = maximized ? 'Восстановить' : 'Развернуть';
+  if (btn) btn.title   = maximized ? t('header.winRestore') : t('header.winMaximize');
   if (btn) btn.innerHTML = maximized ? '&#9635;' : '&#9633;';
 });
 
+/** Apply data-i18n* attributes to all static DOM elements. Called once after initI18n(). */
+function _applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    el.title = t(el.dataset.i18nTitle);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18nPlaceholder);
+  });
+}
+
 async function main() {
+  await initI18n();
+  _applyI18n();
+
   mixer = new Mixer();
   window.mixer = mixer; // for debugging
 
@@ -48,4 +65,23 @@ async function main() {
   new ChannelDrag(mixer).bindAll();
 }
 
-main().catch(console.error);
+main().catch((err) => {
+  console.error(err);
+  window.api.log.crash('RENDERER/MAIN', err.message ?? String(err), err.stack ?? '', '');
+});
+
+// ─── Global renderer error handlers ───────────────────────────────────────
+
+window.addEventListener('error', (e) => {
+  const msg   = e.error?.message ?? e.message ?? String(e);
+  const stack = e.error?.stack   ?? '';
+  const detail = e.filename ? `${e.filename}:${e.lineno}:${e.colno}` : '';
+  window.api.log.crash('RENDERER', msg, stack, detail);
+});
+
+window.addEventListener('unhandledrejection', (e) => {
+  const reason = e.reason;
+  const msg   = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? (reason.stack ?? '') : '';
+  window.api.log.crash('RENDERER/PROMISE', msg, stack, '');
+});

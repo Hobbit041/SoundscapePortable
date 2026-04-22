@@ -1,0 +1,188 @@
+{
+  "header": {
+    "midiStatusScanning": "MIDI: сканирование…",
+    "midiStatusNoDevices": "MIDI: устройства не найдены",
+    "midiStatusDevices": "MIDI: {devices}",
+    "soundscapeNamePlaceholder": "Название профиля",
+    "profilesTitle": "Профили",
+    "settingsTitle": "Настройки",
+    "importTitle": "Импортировать .soundscapeData",
+    "exportTitle": "Экспортировать .soundscapeData",
+    "winMinimize": "Свернуть",
+    "winMaximize": "Развернуть",
+    "winRestore": "Восстановить",
+    "winClose": "Закрыть"
+  },
+
+  "mixer": {
+    "channelLoadAudioTitle": "Загрузить аудиофайл",
+    "channelNamePlaceholder": "Канал {n}",
+    "prevTrack": "Предыдущий трек",
+    "nextTrack": "Следующий трек",
+    "masterLabel": "Мастер",
+    "masterSubLabel": "Музыка и амбиенты"
+  },
+
+  "ambient": {
+    "channelNamePlaceholder": "Звук {n}",
+    "masterSubLabel": "Фоновые звуки",
+    "playlistTitle": "Очередь воспроизведения — Звук {n}"
+  },
+
+  "soundboard": {
+    "title": "Звуковая панель",
+    "volumeLabel": "Громкость",
+    "stopAllTitle": "Остановить все звуки саундборда",
+    "stopAllText": "Остановить звуки"
+  },
+
+  "scenes": {
+    "addTitle": "Добавить сцену",
+    "defaultName": "Сцена {n}",
+    "deleteTitle": "Удалить сцену",
+    "sbAddTitle": "Добавить сцену саундборда",
+    "sbDefaultName": "ЗП {n}",
+    "sbDeleteTitle": "Удалить сцену саундборда"
+  },
+
+  "profiles": {
+    "defaultName": "Профиль",
+    "defaultNameN": "Профиль {n}",
+    "addTitle": "Добавить профиль",
+    "deleteTitle": "Удалить профиль",
+    "deleteConfirm": "Удалить текущий профиль?"
+  },
+
+  "midi": {
+    "bindTitle": "Привязать MIDI",
+    "removeTitle": "Удалить привязку",
+    "mappingLabel": "MIDI: {mapping}",
+    "noteMapping": "Note {note} Ch{channel}",
+    "pitchbendMapping": "PitchBend Ch{channel}",
+    "ccMapping": "CC{cc} Ch{channel}",
+    "noMappingsAlert": "Нет сохранённых MIDI-маппингов для экспорта."
+  },
+
+  "settings": {
+    "title": "Настройки",
+    "midiSection": "MIDI-маппинг",
+    "exportMidi": "Экспорт маппинга",
+    "importMidi": "Импорт маппинга",
+    "dropBehaviorSection": "Поведение при перетаскивании файлов из системы",
+    "dropMusic": "Музыка и амбиенты",
+    "dropBg": "Фоновые звуки",
+    "dropSb": "Звуковая панель",
+    "dropOverwrite": "Перезаписывать очередь воспроизведения",
+    "dropNext": "Добавить следующим в очереди воспроизведения",
+    "dropAppend": "Добавить в конец очереди воспроизведения",
+    "otherSection": "Другие настройки",
+    "language": "Язык программы",
+    "langRu": "Русский",
+    "langEn": "English",
+    "exportProfiles": "Экспортировать все профили",
+    "importProfiles": "Импортировать профили",
+    "dropBehaviorDesc": "Как должна вести себя очередь воспроизведения при перетаскивании файлов напрямую на дорожки:",
+    "dropHintOverwrite": "Все файлы в очереди воспроизведения будут перезаписаны файлом или файлами из папки, которую вы перетянули на дорожку",
+    "dropHintNext": "Файл или файлы из папки, которые вы перетянули на дорожку, воспроизведутся следующими в порядке очереди после играющего сейчас",
+    "dropHintAppend": "Файл или файлы из папки, которые вы перетянули на дорожку, будут добавлены в конец текущей очереди воспроизведения ИЛИ в случайное место, если у вас отмечен флажок «Перемешать»"
+  },
+
+  "fxDialog": {
+    "title": "FX — CH {n}",
+    "eq": {
+      "title": "Эквалайзер",
+      "highPass": "Высокие частоты",
+      "frequency": "Частота",
+      "peak1": "Пик 1",
+      "gain": "Усиление",
+      "peak2": "Пик 2",
+      "lowPass": "Низкие частоты"
+    },
+    "delay": {
+      "title": "Задержка",
+      "enable": "Включить",
+      "time": "Время",
+      "volume": "Громкость"
+    }
+  },
+
+  "channelConfig": {
+    "title": "Настройка — CH {n}",
+    "clearTitle": "Очистить дорожку",
+    "clearConfirm": "Вы точно хотите очистить содержимое этой дорожки?",
+    "sourcesSection": "Источники",
+    "fileCount": "{n} файл",
+    "fileCountFew": "{n} файла",
+    "fileCountMany": "{n} файлов",
+    "openPlaylist": "Открыть очередь воспроизведения",
+    "playlistTitle": "Очередь воспроизведения — CH {n}",
+    "repeatSection": "Повтор",
+    "repeatMode": "Режим",
+    "repeatNone": "Нет",
+    "repeatSingle": "Зациклено",
+    "repeatAll": "Все файлы",
+    "minDelay": "Мин. задержка",
+    "maxDelay": "Макс. задержка",
+    "playbackRateSection": "Скорость воспроизведения",
+    "rate": "Скорость",
+    "preservePitch": "Не менять высоту",
+    "randomRate": "Случайная скорость",
+    "additionalSection": "Доп. настройки",
+    "pan": "Баланс L/R",
+    "fadeIn": "Нарастание",
+    "fadeOut": "Затухание",
+    "autoPlay": "Воспроизводить при смене сцен"
+  },
+
+  "soundboardConfig": {
+    "title": "Настройка — SB {n}",
+    "clearTitle": "Очистить кнопку",
+    "clearConfirm": "Вы точно хотите очистить содержимое этой кнопки?",
+    "nameSection": "Название",
+    "namePlaceholder": "Название кнопки",
+    "interrupt": "Прервать воспроизведение",
+    "sourcesSection": "Источники",
+    "openPlaylist": "Открыть очередь воспроизведения",
+    "playlistTitle": "Очередь воспроизведения — SB {n}",
+    "imageSection": "Изображение",
+    "pickImage": "Выбрать",
+    "clearImageTitle": "Убрать изображение",
+    "volumeSection": "Громкость",
+    "volume": "Громкость",
+    "randomVolume": "Случайная ±",
+    "repeatSection": "Повтор",
+    "repeatMode": "Режим",
+    "repeatNone": "Нет",
+    "repeatSingle": "Зациклено",
+    "repeatAll": "Все файлы",
+    "minDelay": "Мин. задержка",
+    "maxDelay": "Макс. задержка",
+    "playbackRateSection": "Скорость воспроизведения",
+    "rate": "Скорость",
+    "preservePitch": "Не менять высоту",
+    "randomRate": "Случайная скорость"
+  },
+
+  "playlist": {
+    "clearTitle": "Очистить канал",
+    "clearConfirm": "Очистить канал?",
+    "empty": "Перетащите файлы или папки сюда",
+    "upTitle": "Вверх",
+    "downTitle": "Вниз",
+    "deleteTitle": "Удалить",
+    "sequential": "Воспроизводить поочередно",
+    "autoPlay": "Воспроизводить при смене сцен",
+    "shuffle": "Перемешать"
+  },
+
+  "nativeDialogs": {
+    "exportSoundscapeTitle": "Экспортировать Саундскейп",
+    "importSoundscapeTitle": "Импортировать Саундскейп",
+    "exportMidiTitle": "Экспорт MIDI-маппинга",
+    "importMidiTitle": "Импорт MIDI-маппинга",
+    "soundscapeDataFilter": "Данные Soundscape",
+    "midiMappingFilter": "MIDI Mapping",
+    "audioFilesFilter": "Аудиофайлы",
+    "imageFilesFilter": "Файлы изображений"
+  }
+}

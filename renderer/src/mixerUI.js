@@ -9,6 +9,7 @@ import { ChannelConfigDialog }    from './channelConfigDialog.js';
 import { SoundboardConfigDialog } from './soundboardConfigDialog.js';
 import { filesToPlaylistItems, PlaylistDialog } from './playlistDialog.js';
 import { AMBIENT_SIZE }           from './ambientMixer.js';
+import { t }                      from './i18n.js';
 
 const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif']);
 
@@ -43,9 +44,9 @@ const MIDI_ENTITIES = [
 
 function _fmtMapping(m) {
   if (!m) return '';
-  if (m.type === 'noteon')      return `Note ${m.note} Ch${m.channel + 1}`;
-  if (m.type === 'pitchbend')   return `PitchBend Ch${m.channel + 1}`;
-  if (m.type === 'cc_relative') return `CC${m.cc} Ch${m.channel + 1}`;
+  if (m.type === 'noteon')      return t('midi.noteMapping',      { note: m.note, channel: m.channel + 1 });
+  if (m.type === 'pitchbend')   return t('midi.pitchbendMapping', { channel: m.channel + 1 });
+  if (m.type === 'cc_relative') return t('midi.ccMapping',        { cc: m.cc, channel: m.channel + 1 });
   return '';
 }
 // ────────────────────────────────────────────────────────────────────────────
@@ -88,9 +89,12 @@ export class MixerUI {
       const data = ss.channels?.[i];
       if (!data) continue;
 
-      this._el(`channelName-${i}`).value      = data.settings?.name ?? '';
-      this._el(`volumeSlider-${i}`).value     = (data.settings?.volume ?? 1) * 100;
-      this._el(`volumeNumber-${i}`).value     = Math.round((data.settings?.volume ?? 1) * 100);
+      const nameVal = data.settings?.name ?? '';
+      this._el(`channelName-${i}`).value       = nameVal;
+      this._el(`channelName-${i}`).title       = nameVal;
+      this._el(`channelName-${i}`).placeholder = t('mixer.channelNamePlaceholder', { n: i + 1 });
+      this._el(`volumeSlider-${i}`).value      = (data.settings?.volume ?? 1) * 100;
+      this._el(`volumeNumber-${i}`).value      = Math.round((data.settings?.volume ?? 1) * 100);
       this._setMuteColor(`mute-${i}`, data.settings?.mute ?? false);
       this._setSoloColor(`solo-${i}`, data.settings?.solo ?? false);
       this._setLinkColor(`link-${i}`, data.settings?.link ?? false);
@@ -112,7 +116,12 @@ export class MixerUI {
       const nameEl = this._el(`ambName-${i}`);
       const slEl   = this._el(`ambSlider-${i}`);
       const playEl = this._el(`ambPlay-${i}`);
-      if (nameEl) nameEl.value   = amb.settings?.name ?? '';
+      const ambName = amb.settings?.name ?? '';
+      if (nameEl) {
+        nameEl.value       = ambName;
+        nameEl.title       = ambName;
+        nameEl.placeholder = t('ambient.channelNamePlaceholder', { n: i + 1 });
+      }
       if (slEl)   slEl.value     = (amb.settings?.volume ?? 1) * 100;
       if (playEl) playEl.innerHTML = this.mixer.ambientMixer?.channels[i]?.playing
         ? '<i class="fas fa-stop"></i>'
@@ -124,8 +133,8 @@ export class MixerUI {
 
     // Soundboard
     const sbData = ss.soundboard ?? [];
-    const sbGain = ss.soundboardGain ?? 0.5;
-    this._el('sbVolume').value = sbGain * 100;
+    const sbGain = ss.soundboardGain ?? 0.75;
+    this._el('sbVolume').value = sbGain / 1.5 * 100;
 
     for (let i = 0; i < 25; i++) {
       const btn = this._el(`sbButton-${i}`);
@@ -174,7 +183,7 @@ export class MixerUI {
 
   updateSoundboardVolume(volume) {
     const el = this._el('sbVolume');
-    if (el) el.value = volume * 100;
+    if (el) el.value = volume / 1.5 * 100;
   }
 
   /** Update all channel + master volume sliders from live channel state (used by MIDI). */
@@ -217,8 +226,8 @@ export class MixerUI {
     const el = this._el('midiStatus');
     if (!el) return;
     el.textContent = devices.length > 0
-      ? `MIDI: ${devices.join(', ')}`
-      : 'MIDI: no devices';
+      ? t('header.midiStatusDevices', { devices: devices.join(', ') })
+      : t('header.midiStatusNoDevices');
   }
 
   // ─── Static event binding (called once) ──────────────────────────────────────
@@ -226,8 +235,7 @@ export class MixerUI {
   _bindStaticEvents() {
     document.addEventListener('keydown', e => {
       if (e.key === 'Control' || e.key === 'Meta') this._controlDown = true;
-      if (e.key === 'F2') { e.preventDefault(); this._exportMidiMappings(); }
-      if (e.key === 'F3') { e.preventDefault(); this._importMidiMappings(); }
+      if (e.key === 'F4') { e.preventDefault(); window.api.log.openFolder(); }
     });
     document.addEventListener('keyup',   e => { if (e.key === 'Control' || e.key === 'Meta') this._controlDown = false; });
 
@@ -271,7 +279,7 @@ export class MixerUI {
 
     // ── Soundboard volume & stop ──
     this._on('sbVolume', 'input', async (e) => {
-      await this.mixer.soundboard.setVolume(e.target.value / 100);
+      await this.mixer.soundboard.setVolume(e.target.value / 100 * 1.5);
     });
     this._on('sbStopAll', 'click', () => {
       this.mixer.soundboard.stopAll();
@@ -302,6 +310,9 @@ export class MixerUI {
       this.mixer.ambientMixer?.setMasterVolume(val);
       await this._saveAmbientMasterVolume(val);
     });
+
+    // ── Settings ──
+    this._on('settingsBtn', 'click', () => this._openSettingsPanel());
 
     // ── Add scene ──
     this._on('addScene', 'click', () => this.mixer.addScene());
@@ -385,7 +396,7 @@ export class MixerUI {
         const files = Array.from(e.dataTransfer.files);
         if (!files.length) return;
         const playlist = await filesToPlaylistItems(files);
-        const name = playlist[0]?.label?.replace(/\.[^.]+$/, '') ?? '';
+        const name = (playlist[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
         await this.mixer.newData(i, { type: 'playlist', playlist, name });
       });
     }
@@ -428,7 +439,7 @@ export class MixerUI {
       } else {
         const playlist = await filesToPlaylistItems(files);
         if (!playlist.length) return;
-        const name = playlist[0]?.label?.replace(/\.[^.]+$/, '') ?? '';
+        const name = (playlist[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
         await this.mixer.soundboard.newData(i, { type: 'playlist', playlist, name });
       }
     });
@@ -493,7 +504,7 @@ export class MixerUI {
         ambEntry.soundData = { playlist, shuffle: false };
 
         // Set name from first file if channel has no name yet
-        const newName = playlist[0]?.label?.replace(/\.[^.]+$/, '') ?? '';
+        const newName = (playlist[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
         if (!ambEntry.settings.name && newName) {
           ambEntry.settings.name = newName;
         }
@@ -520,7 +531,7 @@ export class MixerUI {
 
   _openAmbientPlaylist(i) {
     new PlaylistDialog({
-      title:         `Ambient ${i + 1}`,
+      title:         t('ambient.playlistTitle', { n: i + 1 }),
       panelId:       `amb-${i}`,
       getSoundData:  async () => {
         const ss = await Storage.getSoundscapes();
@@ -562,7 +573,7 @@ export class MixerUI {
       const btn = document.createElement('button');
       btn.className = 'scene-btn' + (idx === currentScene ? ' scene-active' : '');
       btn.dataset.sceneIdx = idx;
-      btn.textContent = scene.name || `Scene ${idx + 1}`;
+      btn.textContent = scene.name || t('scenes.defaultName', { n: idx + 1 });
 
       btn.addEventListener('click', () => {
         const curIdx = this._currentSceneFromRow() ?? currentScene;
@@ -575,7 +586,7 @@ export class MixerUI {
 
       btn.addEventListener('contextmenu', e => {
         e.preventDefault();
-        this._editScene(btn, idx, scene.name || `Scene ${idx + 1}`, scenes.length);
+        this._editScene(btn, idx, scene.name || t('scenes.defaultName', { n: idx + 1 }), scenes.length);
       });
 
       row.insertBefore(btn, addBtn);
@@ -604,10 +615,10 @@ export class MixerUI {
     input.spellcheck = false;
 
     const trash = document.createElement('button');
-    trash.className = 'scene-trash-btn';
-    trash.title     = 'Удалить сцену';
+    trash.className   = 'scene-trash-btn';
+    trash.title       = t('scenes.deleteTitle');
     trash.textContent = '🗑';
-    trash.disabled  = sceneCount <= 1;
+    trash.disabled    = sceneCount <= 1;
 
     wrap.appendChild(input);
     wrap.appendChild(trash);
@@ -626,7 +637,7 @@ export class MixerUI {
 
     const finishEdit = async () => {
       if (trashClicked) return;
-      const newName = input.value.trim() || `Scene ${idx + 1}`;
+      const newName = input.value.trim() || t('scenes.defaultName', { n: idx + 1 });
       await this.mixer.renameScene(idx, newName);
       // Re-render scenes only
       const soundscapes = await Storage.getSoundscapes();
@@ -655,7 +666,7 @@ export class MixerUI {
       const btn = document.createElement('button');
       btn.className = 'sb-scene-btn' + (idx === currentSbScene ? ' sb-scene-active' : '');
       btn.dataset.sbSceneIdx = idx;
-      btn.textContent = scene.name || `SB ${idx + 1}`;
+      btn.textContent = scene.name || t('scenes.sbDefaultName', { n: idx + 1 });
 
       btn.addEventListener('click', () => {
         this.mixer.switchSoundboardScene(idx);
@@ -663,7 +674,7 @@ export class MixerUI {
 
       btn.addEventListener('contextmenu', e => {
         e.preventDefault();
-        this._editSbScene(btn, idx, scene.name || `SB ${idx + 1}`, sbScenes.length);
+        this._editSbScene(btn, idx, scene.name || t('scenes.sbDefaultName', { n: idx + 1 }), sbScenes.length);
       });
 
       row.insertBefore(btn, addBtn);
@@ -683,10 +694,10 @@ export class MixerUI {
     input.spellcheck = false;
 
     const trash = document.createElement('button');
-    trash.className = 'scene-trash-btn';
-    trash.title     = 'Удалить сцену саундборда';
+    trash.className   = 'scene-trash-btn';
+    trash.title       = t('scenes.sbDeleteTitle');
     trash.textContent = '🗑';
-    trash.disabled  = sceneCount <= 1;
+    trash.disabled    = sceneCount <= 1;
 
     wrap.appendChild(input);
     wrap.appendChild(trash);
@@ -704,7 +715,7 @@ export class MixerUI {
 
     const finishEdit = async () => {
       if (trashClicked) return;
-      const newName = input.value.trim() || `SB ${idx + 1}`;
+      const newName = input.value.trim() || t('scenes.sbDefaultName', { n: idx + 1 });
       await this.mixer.renameSoundboardScene(idx, newName);
       const soundscapes = await Storage.getSoundscapes();
       this._renderSbScenes(soundscapes[this.mixer.currentSoundscape]);
@@ -739,6 +750,138 @@ export class MixerUI {
   _setLinkColor(id, link) {
     const el = this._el(id);
     if (el) el.style.backgroundColor = link ? '#0096ff' : '#000fff';
+  }
+
+  // ─── Settings panel ──────────────────────────────────────────────────────────
+
+  _openSettingsPanel() {
+    const existing = document.getElementById('settingsPanel');
+    if (existing) {
+      existing.remove();
+      document.getElementById('settingsOverlay')?.remove();
+      return;
+    }
+
+    const DROP_OPTIONS = `
+      <option value="overwrite">${t('settings.dropOverwrite')}</option>
+      <option value="next">${t('settings.dropNext')}</option>
+      <option value="append">${t('settings.dropAppend')}</option>
+    `;
+
+    const panel = document.createElement('div');
+    panel.id        = 'settingsPanel';
+    panel.className = 'settings-panel fx-panel';
+    panel.innerHTML = `
+      <div class="fx-header settings-panel-header">
+        <span>${t('settings.title')}</span>
+        <button class="fx-close" id="settingsPanelClose">✕</button>
+      </div>
+      <div class="settings-panel-body">
+
+        <div class="settings-section">
+          <div class="settings-section-title">${t('settings.midiSection')}</div>
+          <div class="settings-row">
+            <button class="settings-btn" id="settingsMidiExport">
+              <i class="fas fa-file-export"></i> ${t('settings.exportMidi')}
+            </button>
+            <button class="settings-btn" id="settingsMidiImport">
+              <i class="fas fa-file-import"></i> ${t('settings.importMidi')}
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">${t('settings.dropBehaviorSection')}</div>
+          <p class="settings-drop-hint settings-drop-hint-static">${t('settings.dropBehaviorDesc')}</p>
+          <div class="settings-drop-grid">
+            <label class="settings-drop-label">${t('settings.dropMusic')}</label>
+            <select class="settings-select" id="dropBehaviorMusic">${DROP_OPTIONS}</select>
+            <label class="settings-drop-label">${t('settings.dropBg')}</label>
+            <select class="settings-select" id="dropBehaviorBg">${DROP_OPTIONS}</select>
+            <label class="settings-drop-label">${t('settings.dropSb')}</label>
+            <select class="settings-select" id="dropBehaviorSb">${DROP_OPTIONS}</select>
+          </div>
+          <p class="settings-drop-hint" id="dropBehaviorHint"></p>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">${t('settings.otherSection')}</div>
+          <div class="settings-drop-grid">
+            <label class="settings-drop-label">${t('settings.language')}</label>
+            <select class="settings-select" id="settingsLanguage">
+              <option value="ru">${t('settings.langRu')}</option>
+              <option value="en">${t('settings.langEn')}</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <button class="settings-btn" id="settingsProfileExport">
+              <i class="fas fa-file-export"></i> ${t('settings.exportProfiles')}
+            </button>
+            <button class="settings-btn" id="settingsProfileImport">
+              <i class="fas fa-file-import"></i> ${t('settings.importProfiles')}
+            </button>
+          </div>
+        </div>
+
+      </div>
+    `;
+    // Overlay
+    const overlay = document.createElement('div');
+    overlay.id        = 'settingsOverlay';
+    overlay.className = 'settings-overlay';
+    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+
+    // Center on screen
+    panel.style.left = `${Math.round((window.innerWidth  - panel.offsetWidth)  / 2)}px`;
+    panel.style.top  = `${Math.round((window.innerHeight - panel.offsetHeight) / 2)}px`;
+
+    const closeSettings = () => {
+      document.getElementById('settingsPanel')?.remove();
+      document.getElementById('settingsOverlay')?.remove();
+    };
+
+    // MIDI buttons
+    document.getElementById('settingsPanelClose')
+      ?.addEventListener('click', closeSettings);
+    document.getElementById('settingsMidiExport')
+      ?.addEventListener('click', () => this._exportMidiMappings());
+    document.getElementById('settingsMidiImport')
+      ?.addEventListener('click', () => this._importMidiMappings());
+
+    // Profile export/import (stub)
+    document.getElementById('settingsProfileExport')
+      ?.addEventListener('click', () => {/* TODO: export all profiles */});
+    document.getElementById('settingsProfileImport')
+      ?.addEventListener('click', () => {/* TODO: import profiles */});
+
+    // Drag-behaviour hint
+    const HINTS = {
+      overwrite: t('settings.dropHintOverwrite'),
+      next:      t('settings.dropHintNext'),
+      append:    t('settings.dropHintAppend'),
+    };
+    const hintEl    = document.getElementById('dropBehaviorHint');
+    const selectIds = ['dropBehaviorMusic', 'dropBehaviorBg', 'dropBehaviorSb'];
+    const updateHint = (value) => {
+      hintEl.textContent = HINTS[value] ?? '';
+    };
+    // Seed initial hint from the first select's current value
+    updateHint(document.getElementById('dropBehaviorMusic')?.value ?? 'overwrite');
+    for (const id of selectIds) {
+      document.getElementById(id)?.addEventListener('change', (e) => updateHint(e.target.value));
+    }
+
+    // Close on outside click
+    const onOutside = (e) => {
+      const p = document.getElementById('settingsPanel');
+      const b = document.getElementById('settingsBtn');
+      if (p && !p.contains(e.target) && !b?.contains(e.target)) {
+        closeSettings();
+        document.removeEventListener('mousedown', onOutside);
+      }
+    };
+    setTimeout(() => document.addEventListener('mousedown', onOutside), 0);
   }
 
   // ─── Profile list panel ──────────────────────────────────────────────────────
@@ -776,8 +919,8 @@ export class MixerUI {
     const footer = document.createElement('div');
     footer.className = 'ss-list-footer';
     footer.innerHTML = `
-      <button id="ssListAdd" title="Добавить профиль"><i class="fas fa-plus"></i></button>
-      <button id="ssListDel" title="Удалить профиль" class="btn-danger"><i class="fas fa-trash"></i></button>
+      <button id="ssListAdd" title="${t('profiles.addTitle')}"><i class="fas fa-plus"></i></button>
+      <button id="ssListDel" title="${t('profiles.deleteTitle')}" class="btn-danger"><i class="fas fa-trash"></i></button>
     `;
 
     panel.appendChild(scroll);
@@ -788,12 +931,12 @@ export class MixerUI {
       const list = await Storage.getSoundscapes();
       const newIdx = list.length;
       await this.mixer.insertSoundscape(newIdx);
-      await this.mixer.renameSoundscape(newIdx, 'Профиль');
+      await this.mixer.renameSoundscape(newIdx, t('profiles.defaultName'));
       await this._refreshSoundscapeList();
     });
 
     document.getElementById('ssListDel')?.addEventListener('click', async () => {
-      if (!confirm('Удалить текущий профиль?')) return;
+      if (!confirm(t('profiles.deleteConfirm'))) return;
       document.getElementById('ssListPanel')?.remove();
       this._ssOutsideOff?.();
       await this.mixer.removeSoundscape(this.mixer.currentSoundscape);
@@ -821,7 +964,7 @@ export class MixerUI {
     row.className   = 'ss-row' + (idx === current ? ' ss-row-active' : '');
     row.dataset.idx = String(idx);
     row.draggable   = true;
-    row.textContent = ss.name || `Профиль ${idx + 1}`;
+    row.textContent = ss.name || t('profiles.defaultNameN', { n: idx + 1 });
 
     // Track drag start to suppress click-on-drag-end
     let wasDragged = false;
@@ -1019,14 +1162,16 @@ export class MixerUI {
 
       const chain = document.createElement('button');
       chain.className = 'midi-chain-btn' + (mapped ? ' midi-chain-mapped' : '');
-      chain.title = mapped ? `MIDI: ${_fmtMapping(mappings[entity.key])}` : 'Привязать MIDI';
+      chain.title = mapped
+        ? t('midi.mappingLabel', { mapping: _fmtMapping(mappings[entity.key]) })
+        : t('midi.bindTitle');
       chain.textContent = '🔗';
 
       const trash = document.createElement('button');
-      trash.className = 'midi-trash-btn';
-      trash.title = 'Удалить привязку';
+      trash.className   = 'midi-trash-btn';
+      trash.title       = t('midi.removeTitle');
       trash.textContent = '🗑';
-      trash.disabled = !mapped;
+      trash.disabled    = !mapped;
 
       wrap.appendChild(chain);
       wrap.appendChild(trash);
@@ -1060,14 +1205,16 @@ export class MixerUI {
 
       const chain = document.createElement('button');
       chain.className = 'midi-chain-btn' + (mapped ? ' midi-chain-mapped' : '');
-      chain.title = mapped ? `MIDI: ${_fmtMapping(mappings[key])}` : 'Привязать MIDI';
+      chain.title = mapped
+        ? t('midi.mappingLabel', { mapping: _fmtMapping(mappings[key]) })
+        : t('midi.bindTitle');
       chain.textContent = '🔗';
 
       const trash = document.createElement('button');
-      trash.className = 'midi-trash-btn';
-      trash.title = 'Удалить привязку';
+      trash.className   = 'midi-trash-btn';
+      trash.title       = t('midi.removeTitle');
       trash.textContent = '🗑';
-      trash.disabled = !mapped;
+      trash.disabled    = !mapped;
 
       wrap.appendChild(chain);
       wrap.appendChild(trash);
@@ -1112,7 +1259,7 @@ export class MixerUI {
     const wrap = document.querySelector(`.midi-map-wrap[data-entity="${entityKey}"]`);
     if (wrap) {
       const chain = wrap.querySelector('.midi-chain-btn');
-      if (chain) { chain.className = 'midi-chain-btn'; chain.title = 'Привязать MIDI'; }
+      if (chain) { chain.className = 'midi-chain-btn'; chain.title = t('midi.bindTitle'); }
       const trash = wrap.querySelector('.midi-trash-btn');
       if (trash) trash.disabled = true;
     }
@@ -1123,7 +1270,10 @@ export class MixerUI {
     const wrap = document.querySelector(`.midi-map-wrap[data-entity="${entityKey}"]`);
     if (wrap) {
       const chain = wrap.querySelector('.midi-chain-btn');
-      if (chain) { chain.className = 'midi-chain-btn midi-chain-mapped'; chain.title = `MIDI: ${_fmtMapping(data)}`; }
+      if (chain) {
+        chain.className = 'midi-chain-btn midi-chain-mapped';
+        chain.title = t('midi.mappingLabel', { mapping: _fmtMapping(data) });
+      }
       const trash = wrap.querySelector('.midi-trash-btn');
       if (trash) trash.disabled = false;
     }
@@ -1143,7 +1293,7 @@ export class MixerUI {
   async _exportMidiMappings() {
     const mappings = this.midi?.getMappings() ?? {};
     if (!Object.keys(mappings).length) {
-      alert('Нет сохранённых MIDI-маппингов для экспорта.');
+      alert(t('midi.noMappingsAlert'));
       return;
     }
     await window.api.midi.saveMappings(mappings);
@@ -1165,7 +1315,7 @@ export class MixerUI {
     const soundscapes = await Storage.getSoundscapes();
     const current = soundscapes[this.mixer.currentSoundscape];
     if (!current) return;
-    const defaultName = (current.name || `Профиль ${this.mixer.currentSoundscape + 1}`)
+    const defaultName = (current.name || t('profiles.defaultNameN', { n: this.mixer.currentSoundscape + 1 }))
       .replace(/[\\/:*?"<>|]/g, '_');
     await window.api.data.save(current, defaultName);
   }

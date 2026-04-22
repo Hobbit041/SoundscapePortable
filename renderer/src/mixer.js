@@ -593,7 +593,7 @@ export class Mixer {
       channels,
       master: { settings: { volume: 1, mute: false } },
       soundboard,
-      soundboardGain: 0.5,
+      soundboardGain: 0.75,
       sbScenes: [{ name: 'SB 1', soundboard: structuredClone(soundboard) }],
       currentSbScene: 0,
       ambient,

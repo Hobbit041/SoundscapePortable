@@ -9,9 +9,10 @@
  *     getSoundData:  async () => soundData,
  *     saveSoundData: async (data) => { ... },
  *     getChannel:    () => liveChannelObject,
- *     mode:          'channel' | 'soundboard'   (default: 'channel')
+ *     mode:          'channel' | 'soundboard' | 'ambient'   (default: 'channel')
  *   }).open();
  */
+import { t } from './i18n.js';
 
 const AUDIO_EXT = new Set(['mp3', 'ogg', 'wav', 'flac', 'm4a', 'opus', 'webm']);
 
@@ -81,35 +82,35 @@ export class PlaylistDialog {
       <div class="fx-header">
         <span>${this.title}</span>
         <div style="display:flex;gap:4px;align-items:center">
-          ${this._onClear ? `<button class="cfg-reset-btn" id="plClear-${this.panelId}" title="Очистить канал">🗑</button>` : ''}
+          ${this._onClear ? `<button class="cfg-reset-btn" id="plClear-${this.panelId}" title="${t('playlist.clearTitle')}">🗑</button>` : ''}
           <button class="fx-close" id="plClose-${this.panelId}">✕</button>
         </div>
       </div>
       <div class="pl-list-wrap" id="plListWrap-${this.panelId}">
         <div class="pl-list" id="plList-${this.panelId}"></div>
-        <div class="pl-empty" id="plEmpty-${this.panelId}">Перетащите файлы или папки сюда</div>
+        <div class="pl-empty" id="plEmpty-${this.panelId}">${t('playlist.empty')}</div>
       </div>
       <div class="pl-toolbar">
-        <button class="pl-btn"         id="plUp-${this.panelId}"   title="Вверх"   disabled>▲</button>
-        <button class="pl-btn"         id="plDown-${this.panelId}" title="Вниз"    disabled>▼</button>
-        <button class="pl-btn pl-del"  id="plDel-${this.panelId}"  title="Удалить" disabled>🗑</button>
+        <button class="pl-btn"         id="plUp-${this.panelId}"   title="${t('playlist.upTitle')}"     disabled>▲</button>
+        <button class="pl-btn"         id="plDown-${this.panelId}" title="${t('playlist.downTitle')}"   disabled>▼</button>
+        <button class="pl-btn pl-del"  id="plDel-${this.panelId}"  title="${t('playlist.deleteTitle')}" disabled>🗑</button>
         ${this._mode === 'soundboard'
           ? `<label class="pl-shuffle">
                <input type="checkbox" id="plSequential-${this.panelId}" ${this.sequential ? 'checked' : ''}>
-               Воспроизводить поочередно
+               ${t('playlist.sequential')}
              </label>`
           : this._mode === 'ambient'
           ? `<label class="pl-shuffle">
                <input type="checkbox" id="plAutoPlay-${this.panelId}" ${this.autoPlay ? 'checked' : ''}>
-               Воспроизводить при смене сцен
+               ${t('playlist.autoPlay')}
              </label>
              <label class="pl-shuffle">
                <input type="checkbox" id="plShuffle-${this.panelId}" ${this.shuffle ? 'checked' : ''}>
-               Перемешать
+               ${t('playlist.shuffle')}
              </label>`
           : `<label class="pl-shuffle">
                <input type="checkbox" id="plShuffle-${this.panelId}" ${this.shuffle ? 'checked' : ''}>
-               Перемешать
+               ${t('playlist.shuffle')}
              </label>`
         }
       </div>
@@ -284,7 +285,7 @@ export class PlaylistDialog {
 
     if (this._onClear) {
       this._q(`plClear-${id}`)?.addEventListener('click', async () => {
-        if (!confirm('Очистить канал?')) return;
+        if (!confirm(t('playlist.clearConfirm'))) return;
         await this._onClear();
         document.getElementById(`plPanel-${id}`)?.remove();
       });

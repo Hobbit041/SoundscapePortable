@@ -6,7 +6,9 @@
       "Bash(npm run:*)",
       "Bash(CSC_IDENTITY_AUTO_DISCOVERY=false npm run build)",
       "Bash(npx electron-builder:*)",
-      "Bash(npm start:*)"
+      "Bash(npm start:*)",
+      "Bash(node -e \"require\\('electron'\\)\")",
+      "Bash(ls node_modules/.bin/electron*)"
     ]
   }
 }
