@@ -37,6 +37,12 @@ contextBridge.exposeInMainWorld('api', {
     loadMappings: () => ipcRenderer.invoke('load-midi-file'),
   },
 
+  // ─── Profiles import / export ─────────────────────────────────────────────
+  profiles: {
+    save: (data) => ipcRenderer.invoke('save-profiles-file', data),
+    load: () => ipcRenderer.invoke('load-profiles-file'),
+  },
+
   // ─── Window controls ──────────────────────────────────────────────────────
   win: {
     minimize:    () => ipcRenderer.invoke('window-minimize'),

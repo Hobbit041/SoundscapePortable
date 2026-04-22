@@ -554,6 +554,8 @@ input[type="number"] { -moz-appearance: textfield; }
 }
 .pl-row:hover            { background: var(--surface2); }
 .pl-row-sel              { background: var(--accent-dim); border-color: var(--accent); }
+.pl-row-playing          { background: rgba(255, 210, 0, 0.12); color: #ffd700; }
+.pl-row-playing:hover    { background: rgba(255, 210, 0, 0.2); }
 .pl-row-drag             { opacity: 0.4; }
 .pl-row-over             { border-top: 2px solid var(--accent); }
 
@@ -1097,6 +1099,16 @@ input[type="range"].amb-fader {
   background: var(--accent-dim);
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.conflict-names-list {
+  margin: 4px 0 10px 16px;
+  padding: 0;
+  list-style: disc;
+  font-size: 12px;
+  color: #ccc;
+  max-height: 120px;
+  overflow-y: auto;
 }
 
 .settings-panel { width: 500px; }

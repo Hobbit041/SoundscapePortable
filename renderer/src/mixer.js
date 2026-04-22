@@ -119,11 +119,8 @@ export class Mixer {
   async setLinkVolumes(volume, channel) {
     const diff = volume / this.linkProportion[channel];
     for (const ch of this.channels) {
-      let linkVolume = volume;
-      if (this.linkArray[ch.channelNr]) {
-        linkVolume = this.linkProportion[ch.channelNr] * diff;
-      }
-      ch.setVolume(linkVolume);
+      if (!this.linkArray[ch.channelNr]) continue;
+      ch.setVolume(this.linkProportion[ch.channelNr] * diff);
     }
     const soundscapes = await Storage.getSoundscapes();
     for (let i = 0; i < this.mixerSize; i++) {

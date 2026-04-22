@@ -41,5 +41,14 @@ export const Storage = {
 
   async setMidiMappings(data) {
     await this.set('midiMappings', data);
+  },
+
+  // ─── Drop behavior ───────────────────────────────────────────────────────
+  async getDropBehavior() {
+    return await this.get('dropBehavior', { music: 'overwrite', bg: 'overwrite', sb: 'overwrite' });
+  },
+
+  async setDropBehavior(data) {
+    await this.set('dropBehavior', data);
   }
 };

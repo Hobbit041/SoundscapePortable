@@ -326,15 +326,23 @@ export class MixerUI {
     this._on(`volumeSlider-${i}`, 'input', async (e) => {
       const val = e.target.value / 100;
       this._el(`volumeNumber-${i}`).value = Math.round(val * 100);
-      if (this.mixer.channels[i].getLink()) await this.mixer.setLinkVolumes(val, i);
-      else this.mixer.channels[i].setVolume(val);
+      if (this.mixer.channels[i].getLink()) {
+        await this.mixer.setLinkVolumes(val, i);
+        this._updateLinkedSliders(i);
+      } else {
+        this.mixer.channels[i].setVolume(val);
+      }
       await this._saveChannelVolume(i, val);
     });
     this._on(`volumeNumber-${i}`, 'change', async (e) => {
       const val = e.target.value / 100;
       this._el(`volumeSlider-${i}`).value = val * 100;
-      if (this.mixer.channels[i].getLink()) await this.mixer.setLinkVolumes(val, i);
-      else this.mixer.channels[i].setVolume(val);
+      if (this.mixer.channels[i].getLink()) {
+        await this.mixer.setLinkVolumes(val, i);
+        this._updateLinkedSliders(i);
+      } else {
+        this.mixer.channels[i].setVolume(val);
+      }
       await this._saveChannelVolume(i, val);
     });
 
@@ -395,9 +403,50 @@ export class MixerUI {
         box.classList.remove('drag-over');
         const files = Array.from(e.dataTransfer.files);
         if (!files.length) return;
-        const playlist = await filesToPlaylistItems(files);
-        const name = (playlist[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
-        await this.mixer.newData(i, { type: 'playlist', playlist, name });
+        const newItems = await filesToPlaylistItems(files);
+        if (!newItems.length) return;
+
+        const behavior = (await Storage.getDropBehavior()).music ?? 'overwrite';
+
+        if (behavior === 'overwrite') {
+          const name = (newItems[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+          await this.mixer.newData(i, { type: 'playlist', playlist: newItems, name });
+          return;
+        }
+
+        const ss = await Storage.getSoundscapes();
+        const chData = ss[this.mixer.currentSoundscape]?.channels[i];
+        if (!chData) return;
+        const existing = Array.isArray(chData.soundData?.playlist) ? chData.soundData.playlist : [];
+
+        if (!existing.length) {
+          // Nothing in the queue yet — treat as overwrite
+          const name = (newItems[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+          await this.mixer.newData(i, { type: 'playlist', playlist: newItems, name });
+          return;
+        }
+
+        const ch = this.mixer.channels[i];
+        const insertIdx = ch.currentlyPlaying ?? 0;
+        const merged = behavior === 'next'
+          ? [...existing.slice(0, insertIdx + 1), ...newItems, ...existing.slice(insertIdx + 1)]
+          : [...existing, ...newItems];
+
+        chData.soundData = { playlist: merged, shuffle: chData.soundData?.shuffle ?? false };
+        ss[this.mixer.currentSoundscape].channels[i] = chData;
+        await Storage.setSoundscapes(ss);
+
+        const newUrls = (await Promise.all(newItems.map(item => window.api.fs.toUrl(item.path)))).filter(Boolean);
+        if (behavior === 'next') {
+          ch.sourceArray = [
+            ...ch.sourceArray.slice(0, insertIdx + 1),
+            ...newUrls,
+            ...ch.sourceArray.slice(insertIdx + 1),
+          ];
+        } else {
+          ch.sourceArray.push(...newUrls);
+        }
+        this.mixer.renderUI();
       });
     }
   }
@@ -437,10 +486,47 @@ export class MixerUI {
         const img = this._el(`sbImg-${i}`);
         if (img) img.src = _fileUrl(firstPath);
       } else {
-        const playlist = await filesToPlaylistItems(files);
-        if (!playlist.length) return;
-        const name = (playlist[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
-        await this.mixer.soundboard.newData(i, { type: 'playlist', playlist, name });
+        const newItems = await filesToPlaylistItems(files);
+        if (!newItems.length) return;
+
+        const behavior = (await Storage.getDropBehavior()).sb ?? 'overwrite';
+
+        if (behavior === 'overwrite') {
+          const name = (newItems[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+          await this.mixer.soundboard.newData(i, { type: 'playlist', playlist: newItems, name });
+        } else {
+          const ss = await Storage.getSoundscapes();
+          const sbData = ss[this.mixer.currentSoundscape]?.soundboard[i];
+          if (!sbData) return;
+          const existing = Array.isArray(sbData.soundData?.playlist) ? sbData.soundData.playlist : [];
+
+          if (!existing.length) {
+            const name = (newItems[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+            await this.mixer.soundboard.newData(i, { type: 'playlist', playlist: newItems, name });
+          } else {
+            const ch = this.mixer.soundboard.channels[i];
+            const insertIdx = ch.currentlyPlaying ?? 0;
+            const merged = behavior === 'next'
+              ? [...existing.slice(0, insertIdx + 1), ...newItems, ...existing.slice(insertIdx + 1)]
+              : [...existing, ...newItems];
+
+            sbData.soundData = { ...sbData.soundData, playlist: merged };
+            ss[this.mixer.currentSoundscape].soundboard[i] = sbData;
+            await Storage.setSoundscapes(ss);
+
+            const newUrls = (await Promise.all(newItems.map(item => window.api.fs.toUrl(item.path)))).filter(Boolean);
+            if (behavior === 'next') {
+              ch.sourceArray = [
+                ...ch.sourceArray.slice(0, insertIdx + 1),
+                ...newUrls,
+                ...ch.sourceArray.slice(insertIdx + 1),
+              ];
+            } else {
+              ch.sourceArray.push(...newUrls);
+            }
+            this.mixer.renderUI();
+          }
+        }
       }
     });
   }
@@ -490,8 +576,11 @@ export class MixerUI {
         box.classList.remove('drag-over');
         const files = Array.from(e.dataTransfer.files);
         if (!files.length) return;
-        const playlist = await filesToPlaylistItems(files);
-        if (!playlist.length) return;
+        const newItems = await filesToPlaylistItems(files);
+        if (!newItems.length) return;
+
+        const behavior = (await Storage.getDropBehavior()).bg ?? 'overwrite';
+
         const ss = await Storage.getSoundscapes();
         if (!ss[this.mixer.currentSoundscape]) return;
         if (!ss[this.mixer.currentSoundscape].ambient)
@@ -501,26 +590,46 @@ export class MixerUI {
             { settings: { volume: 1, name: '' }, soundData: {} };
 
         const ambEntry = ss[this.mixer.currentSoundscape].ambient[i];
-        ambEntry.soundData = { playlist, shuffle: false };
-
-        // Set name from first file if channel has no name yet
-        const newName = (playlist[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
-        if (!ambEntry.settings.name && newName) {
-          ambEntry.settings.name = newName;
-        }
-
-        await Storage.setSoundscapes(ss);
-
+        const existing = Array.isArray(ambEntry.soundData?.playlist) ? ambEntry.soundData.playlist : [];
         const ch = this.mixer.ambientMixer?.channels[i];
-        if (ch) {
-          const urls = await Promise.all(playlist.map(item => window.api.fs.toUrl(item.path)));
-          ch.sourceArray = urls.filter(Boolean);
-          ch.settings.name = ambEntry.settings.name;
-        }
 
-        // Update name input in DOM
-        const nameEl = this._el(`ambName-${i}`);
-        if (nameEl) nameEl.value = ambEntry.settings.name;
+        if (behavior === 'overwrite' || !existing.length) {
+          ambEntry.soundData = { playlist: newItems, shuffle: ambEntry.soundData?.shuffle ?? false };
+          const newName = (newItems[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+          if (!ambEntry.settings.name && newName) ambEntry.settings.name = newName;
+          await Storage.setSoundscapes(ss);
+
+          if (ch) {
+            const urls = (await Promise.all(newItems.map(item => window.api.fs.toUrl(item.path)))).filter(Boolean);
+            ch.sourceArray = urls;
+            ch.settings.name = ambEntry.settings.name;
+          }
+
+          // Update name input in DOM
+          const nameEl = this._el(`ambName-${i}`);
+          if (nameEl) nameEl.value = ambEntry.settings.name;
+        } else {
+          const insertIdx = ch?.currentlyPlaying ?? 0;
+          const merged = behavior === 'next'
+            ? [...existing.slice(0, insertIdx + 1), ...newItems, ...existing.slice(insertIdx + 1)]
+            : [...existing, ...newItems];
+
+          ambEntry.soundData = { playlist: merged, shuffle: ambEntry.soundData?.shuffle ?? false };
+          await Storage.setSoundscapes(ss);
+
+          if (ch) {
+            const newUrls = (await Promise.all(newItems.map(item => window.api.fs.toUrl(item.path)))).filter(Boolean);
+            if (behavior === 'next') {
+              ch.sourceArray = [
+                ...ch.sourceArray.slice(0, insertIdx + 1),
+                ...newUrls,
+                ...ch.sourceArray.slice(insertIdx + 1),
+              ];
+            } else {
+              ch.sourceArray.push(...newUrls);
+            }
+          }
+        }
 
         // Restore slider value — Chromium may alter range inputs during OS drag-and-drop
         const slEl = this._el(`ambSlider-${i}`);
@@ -749,7 +858,18 @@ export class MixerUI {
 
   _setLinkColor(id, link) {
     const el = this._el(id);
-    if (el) el.style.backgroundColor = link ? '#0096ff' : '#000fff';
+    if (el) el.style.backgroundColor = link ? '#1496ff' : '#0820cc';
+  }
+
+  _updateLinkedSliders(excludeIdx) {
+    for (let j = 0; j < 8; j++) {
+      if (j === excludeIdx || !this.mixer.linkArray[j]) continue;
+      const v = this.mixer.channels[j].settings.volume;
+      const slider = this._el(`volumeSlider-${j}`);
+      const number = this._el(`volumeNumber-${j}`);
+      if (slider) slider.value = v * 100;
+      if (number) number.value = Math.round(v * 100);
+    }
   }
 
   // ─── Settings panel ──────────────────────────────────────────────────────────
@@ -810,7 +930,6 @@ export class MixerUI {
             <label class="settings-drop-label">${t('settings.language')}</label>
             <select class="settings-select" id="settingsLanguage">
               <option value="ru">${t('settings.langRu')}</option>
-              <option value="en">${t('settings.langEn')}</option>
             </select>
           </div>
           <div class="settings-row">
@@ -849,13 +968,13 @@ export class MixerUI {
     document.getElementById('settingsMidiImport')
       ?.addEventListener('click', () => this._importMidiMappings());
 
-    // Profile export/import (stub)
+    // Profile export/import
     document.getElementById('settingsProfileExport')
-      ?.addEventListener('click', () => {/* TODO: export all profiles */});
+      ?.addEventListener('click', () => this._exportProfiles());
     document.getElementById('settingsProfileImport')
-      ?.addEventListener('click', () => {/* TODO: import profiles */});
+      ?.addEventListener('click', () => this._importProfiles());
 
-    // Drag-behaviour hint
+    // Drag-behaviour — load saved values, update hint, save on change
     const HINTS = {
       overwrite: t('settings.dropHintOverwrite'),
       next:      t('settings.dropHintNext'),
@@ -866,10 +985,30 @@ export class MixerUI {
     const updateHint = (value) => {
       hintEl.textContent = HINTS[value] ?? '';
     };
-    // Seed initial hint from the first select's current value
-    updateHint(document.getElementById('dropBehaviorMusic')?.value ?? 'overwrite');
+
+    // Seed selects from storage, then update hint
+    Storage.getDropBehavior().then(saved => {
+      const musicEl = document.getElementById('dropBehaviorMusic');
+      const bgEl    = document.getElementById('dropBehaviorBg');
+      const sbEl    = document.getElementById('dropBehaviorSb');
+      if (musicEl) musicEl.value = saved.music ?? 'overwrite';
+      if (bgEl)    bgEl.value    = saved.bg    ?? 'overwrite';
+      if (sbEl)    sbEl.value    = saved.sb    ?? 'overwrite';
+      updateHint(musicEl?.value ?? 'overwrite');
+    });
+
+    const BEHAVIOR_KEYS = {
+      dropBehaviorMusic: 'music',
+      dropBehaviorBg:    'bg',
+      dropBehaviorSb:    'sb',
+    };
     for (const id of selectIds) {
-      document.getElementById(id)?.addEventListener('change', (e) => updateHint(e.target.value));
+      document.getElementById(id)?.addEventListener('change', async (e) => {
+        updateHint(e.target.value);
+        const saved = await Storage.getDropBehavior();
+        saved[BEHAVIOR_KEYS[id]] = e.target.value;
+        await Storage.setDropBehavior(saved);
+      });
     }
 
     // Close on outside click
@@ -1328,5 +1467,99 @@ export class MixerUI {
     const toAdd = Array.isArray(data) ? data : [data];
     await Storage.setSoundscapes(existing.concat(toAdd));
     await this.mixer.setSoundscape(this.mixer.currentSoundscape);
+  }
+
+  async _exportProfiles() {
+    const soundscapes = await Storage.getSoundscapes();
+    if (!soundscapes.length) {
+      alert(t('settings.noProfilesAlert'));
+      return;
+    }
+    await window.api.profiles.save(soundscapes);
+  }
+
+  async _importProfiles() {
+    const data = await window.api.profiles.load();
+    if (!data || !Array.isArray(data) || !data.length) return;
+
+    const existing = await Storage.getSoundscapes();
+    const existingNames = new Set(existing.map(ss => ss.name));
+    const conflicts = data.filter(ss => existingNames.has(ss.name));
+
+    let choice = 'keepboth';
+    if (conflicts.length) {
+      choice = await this._showProfileConflictDialog(conflicts.map(ss => ss.name));
+      if (choice === null) return;
+    }
+
+    let merged;
+    if (choice === 'overwrite') {
+      // Replace existing profiles that have a matching name, then append non-conflicting imports
+      merged = existing.map(ex => data.find(im => im.name === ex.name) ?? ex);
+      const nonConflicting = data.filter(ss => !existingNames.has(ss.name));
+      merged = merged.concat(nonConflicting);
+    } else if (choice === 'skip') {
+      // Append only imported profiles whose names don't already exist
+      const nonConflicting = data.filter(ss => !existingNames.has(ss.name));
+      merged = existing.concat(nonConflicting);
+    } else {
+      // 'keepboth' — append all imported profiles as-is
+      merged = existing.concat(data);
+    }
+
+    await Storage.setSoundscapes(merged);
+    await this.mixer.setSoundscape(this.mixer.currentSoundscape);
+  }
+
+  _showProfileConflictDialog(conflictNames) {
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.className = 'settings-overlay';
+      overlay.style.zIndex = '9000';
+
+      const panel = document.createElement('div');
+      panel.className = 'fx-panel settings-panel';
+      panel.style.zIndex = '9001';
+
+      const namesList = conflictNames
+        .map(n => `<li>${n.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</li>`)
+        .join('');
+
+      panel.innerHTML = `
+        <div class="fx-header settings-panel-header">
+          <span>${t('settings.profileConflictTitle')}</span>
+          <button class="fx-close" id="profileConflictClose">✕</button>
+        </div>
+        <div class="settings-panel-body">
+          <div class="settings-section">
+            <p class="settings-drop-hint settings-drop-hint-static">${t('settings.profileConflictDesc')}</p>
+            <ul class="conflict-names-list">${namesList}</ul>
+            <div class="settings-row">
+              <button class="settings-btn" id="profileConflictOverwrite">${t('settings.profileConflictOverwrite')}</button>
+              <button class="settings-btn" id="profileConflictKeepBoth">${t('settings.profileConflictKeepBoth')}</button>
+              <button class="settings-btn" id="profileConflictSkip">${t('settings.profileConflictSkip')}</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+      document.body.appendChild(panel);
+
+      panel.style.left = `${Math.round((window.innerWidth  - panel.offsetWidth)  / 2)}px`;
+      panel.style.top  = `${Math.round((window.innerHeight - panel.offsetHeight) / 2)}px`;
+
+      const close = (result) => {
+        overlay.remove();
+        panel.remove();
+        resolve(result);
+      };
+
+      document.getElementById('profileConflictClose')?.addEventListener('click',   () => close(null));
+      document.getElementById('profileConflictOverwrite')?.addEventListener('click', () => close('overwrite'));
+      document.getElementById('profileConflictKeepBoth')?.addEventListener('click', () => close('keepboth'));
+      document.getElementById('profileConflictSkip')?.addEventListener('click',     () => close('skip'));
+      overlay.addEventListener('click', () => close(null));
+    });
   }
 }

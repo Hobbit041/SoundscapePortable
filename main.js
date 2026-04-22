@@ -192,6 +192,30 @@ ipcMain.handle('load-midi-file', async () => {
   return JSON.parse(raw);
 });
 
+// Save a .soundscapeProfiles file (all profiles)
+ipcMain.handle('save-profiles-file', async (_, data) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: nd.exportProfilesTitle,
+    defaultPath: 'soundscape-profiles.soundscapeProfiles',
+    filters: [{ name: nd.profilesDataFilter, extensions: ['soundscapeProfiles'] }]
+  });
+  if (result.canceled) return false;
+  fs.writeFileSync(result.filePath, JSON.stringify(data, null, 2), 'utf8');
+  return true;
+});
+
+// Load a .soundscapeProfiles file
+ipcMain.handle('load-profiles-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: nd.importProfilesTitle,
+    filters: [{ name: nd.profilesDataFilter, extensions: ['soundscapeProfiles', 'json'] }],
+    properties: ['openFile']
+  });
+  if (result.canceled) return null;
+  const raw = fs.readFileSync(result.filePaths[0], 'utf8');
+  return JSON.parse(raw);
+});
+
 // ─── Crash log IPC ───────────────────────────────────────────────────────────
 
 ipcMain.handle('log-crash', (_, source, message, stack, detail) => {

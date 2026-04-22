@@ -60,6 +60,7 @@ export class PlaylistDialog {
     this.selectedSet   = new Set();  // indices of selected rows
     this._anchorIdx    = -1;         // anchor for shift-click range
     this._dragSrcIdx   = null;
+    this._playingInterval = null;
   }
 
   async open() {
@@ -120,6 +121,15 @@ export class PlaylistDialog {
     this._makeDraggable(panel);
     this._renderList();
     this._bindEvents();
+
+    // Live highlight of the currently playing track
+    this._playingInterval = setInterval(() => {
+      if (!document.getElementById(`plPanel-${this.panelId}`)) {
+        clearInterval(this._playingInterval);
+        return;
+      }
+      this._updatePlayingHighlight();
+    }, 800);
   }
 
   // ── Data ─────────────────────────────────────────────────────────────────────
@@ -162,6 +172,17 @@ export class PlaylistDialog {
     });
 
     this._updateToolbar();
+    this._updatePlayingHighlight();
+  }
+
+  _updatePlayingHighlight() {
+    const ch = this.getChannel?.();
+    const playingIdx = ch?.currentlyPlaying ?? -1;
+    const listEl = document.getElementById(`plList-${this.panelId}`);
+    if (!listEl) return;
+    listEl.querySelectorAll('.pl-row').forEach(row => {
+      row.classList.toggle('pl-row-playing', parseInt(row.dataset.idx) === playingIdx);
+    });
   }
 
   _select(idx, shiftHeld = false) {
@@ -342,6 +363,7 @@ export class PlaylistDialog {
     if (this.selectedSet.size === 0) return;
     const indices = [...this.selectedSet].sort((a, b) => a - b);
     if (indices[0] === 0) return;
+    const trackedPath = this._trackedPlayingPath();
     for (const idx of indices) {
       const [item] = this.playlist.splice(idx, 1);
       this.playlist.splice(idx - 1, 0, item);
@@ -349,7 +371,7 @@ export class PlaylistDialog {
     this.selectedSet = new Set(indices.map(i => i - 1));
     if (this._anchorIdx >= 0) this._anchorIdx--;
     if (this._mode !== 'soundboard') this.shuffle = true;
-    this._save();
+    this._save(trackedPath);
     this._renderList();
   }
 
@@ -359,6 +381,7 @@ export class PlaylistDialog {
     // Process from highest index to avoid displacement
     const indices = [...this.selectedSet].sort((a, b) => b - a);
     if (indices[0] === this.playlist.length - 1) return;
+    const trackedPath = this._trackedPlayingPath();
     for (const idx of indices) {
       const [item] = this.playlist.splice(idx, 1);
       this.playlist.splice(idx + 1, 0, item);
@@ -366,19 +389,27 @@ export class PlaylistDialog {
     this.selectedSet = new Set(indices.map(i => i + 1));
     if (this._anchorIdx >= 0) this._anchorIdx++;
     if (this._mode !== 'soundboard') this.shuffle = true;
-    this._save();
+    this._save(trackedPath);
     this._renderList();
   }
 
   /** Move a single dragged row (drag-and-drop reorder). */
   _moveItem(from, to) {
+    const trackedPath = this._trackedPlayingPath();
     const [item] = this.playlist.splice(from, 1);
     this.playlist.splice(to, 0, item);
     this.selectedSet = new Set([to]);
     this._anchorIdx  = to;
     if (this._mode !== 'soundboard') this.shuffle = true;
-    this._save();
+    this._save(trackedPath);
     this._renderList();
+  }
+
+  /** Returns the path of the currently playing track, or null. */
+  _trackedPlayingPath() {
+    const ch = this.getChannel?.();
+    if (!ch) return null;
+    return this.playlist[ch.currentlyPlaying]?.path ?? null;
   }
 
   _shuffleInPlace() {
@@ -388,7 +419,7 @@ export class PlaylistDialog {
     }
   }
 
-  async _save() {
+  async _save(trackedPath = null) {
     const soundData = { playlist: this.playlist, shuffle: this.shuffle };
     if (this._mode === 'soundboard') soundData.sequential = this.sequential;
     if (this._mode === 'ambient')    soundData.autoPlay    = this.autoPlay;
@@ -397,7 +428,13 @@ export class PlaylistDialog {
     if (ch) {
       const urls = await Promise.all(this.playlist.map(item => window.api.fs.toUrl(item.path)));
       ch.sourceArray = urls.filter(Boolean);
-      if (ch.currentlyPlaying >= ch.sourceArray.length) ch.currentlyPlaying = 0;
+      if (trackedPath != null) {
+        // Keep currentlyPlaying pointing at the same track after reorder
+        const newIdx = this.playlist.findIndex(item => item.path === trackedPath);
+        ch.currentlyPlaying = newIdx >= 0 ? newIdx : 0;
+      } else if (ch.currentlyPlaying >= ch.sourceArray.length) {
+        ch.currentlyPlaying = 0;
+      }
       // Keep live settings in sync so playSound() sees the latest sequential flag
       if (ch.settings) ch.settings.soundData = soundData;
     }
