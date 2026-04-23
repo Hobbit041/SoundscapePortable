@@ -30,12 +30,12 @@ const MIDI_ENTITIES = [
   ...Array.from({ length: 8 }, (_, i) => [
     { key: `ch-${i}-mute`,   targetId: `mute-${i}`,         type: 'noteon',    insertInside: true },
     { key: `ch-${i}-solo`,   targetId: `solo-${i}`,         type: 'noteon',    insertInside: true },
-    { key: `ch-${i}-volume`, targetId: `volumeSlider-${i}`, type: 'pitchbend' },
+    { key: `ch-${i}-volume`, targetId: `volumeSlider-${i}`, type: 'volume_any' },
     { key: `ch-${i}-play`,   targetId: `playSound-${i}`,    type: 'noteon'    },
     { key: `ch-${i}-prev`,   targetId: `prevTrack-${i}`,    type: 'noteon',    insertInside: true },
     { key: `ch-${i}-next`,   targetId: `nextTrack-${i}`,    type: 'noteon',    insertInside: true },
   ]).flat(),
-  { key: 'master-volume', targetId: 'volumeSlider-master', type: 'pitchbend' },
+  { key: 'master-volume', targetId: 'volumeSlider-master', type: 'volume_any' },
   { key: 'master-play',   targetId: 'playMix',             type: 'noteon'    },
   { key: 'sb-stopall',    targetId: 'sbStopAll',           type: 'noteon'    },
   ...Array.from({ length: 25 }, (_, i) => ({
@@ -52,6 +52,7 @@ function _fmtMapping(m) {
   if (m.type === 'noteon')      return t('midi.noteMapping',      { note: m.note, channel: m.channel + 1 });
   if (m.type === 'pitchbend')   return t('midi.pitchbendMapping', { channel: m.channel + 1 });
   if (m.type === 'cc_relative') return t('midi.ccMapping',        { cc: m.cc, channel: m.channel + 1 });
+  if (m.type === 'cc_auto')    return t('midi.ccAutoMapping',     { cc: m.cc, channel: m.channel + 1 });
   return '';
 }
 // ────────────────────────────────────────────────────────────────────────────

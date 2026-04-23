@@ -29,7 +29,8 @@ export class MidiController {
     this._listeningType = null;   // 'noteon' | 'pitchbend'
     this._access        = null;
     this._saveTimer     = null;   // debounce handle for deferred storage writes
-    this._recentNoteOns = new Map(); // `ch:note` → timestamp, for button debounce
+    this._recentNoteOns  = new Map(); // `ch:note` → timestamp, for button debounce
+    this._ccAbsoluteCache = new Map(); // `ch:cc` → true  once absolute CC detected
 
     // Callbacks — set by the UI
     this.onDevicesChanged  = null;  // (devices[]) → void
@@ -139,11 +140,11 @@ export class MidiController {
       } else if (this._listeningType === 'pitchbend' && type === 0xE0) {
         this._captureMapping({ type: 'pitchbend', channel });
       } else if (this._listeningType === 'volume_any') {
-        // Accept either PitchBend (absolute) or CC (relative) for ambient volumes
+        // Accept PitchBend (absolute) or any CC (relative/absolute — detected at runtime)
         if (type === 0xE0) {
           this._captureMapping({ type: 'pitchbend', channel });
         } else if (type === 0xB0 && data2 > 0) {
-          this._captureMapping({ type: 'cc_relative', channel, cc: data1 });
+          this._captureMapping({ type: 'cc_auto', channel, cc: data1 });
         }
       }
       return;
@@ -152,7 +153,7 @@ export class MidiController {
     // Normal routing
     if      (type === 0x90 && data2 > 0) this._dispatchNoteOn(channel, data1);
     else if (type === 0xE0)              this._dispatchPitchBend(channel, data1, data2);
-    else if (type === 0xB0 && data2 > 0) this._dispatchCC(channel, data1, data2);
+    else if (type === 0xB0)              this._dispatchCC(channel, data1, data2);
   }
 
   async _captureMapping(data) {
@@ -254,11 +255,39 @@ export class MidiController {
   }
 
   _dispatchCC(channel, ccNum, value) {
-    // value < 64  → increment, value >= 64 → decrement (relative encoder convention)
-    const delta = value < 64 ? value * 0.01 : -(value - 64) * 0.01;
+    // Relative-encoder "safe zone": values that can only come from a step encoder
+    // (1–8 = slow CW, 55–73 = CCW step centred on 64/65, 120–127 = fast CCW two-complement).
+    // Any value outside this zone is treated as absolute (physical knob position 0–127).
+    const inRelativeZone = (value <= 8) || (value >= 55 && value <= 73) || (value >= 120);
+
     for (const [key, m] of Object.entries(this.mappings)) {
-      if (m.type === 'cc_relative' && m.channel === channel && m.cc === ccNum) {
+      if (m.channel !== channel || m.cc !== ccNum) continue;
+
+      if (m.type === 'cc_relative') {
+        if (value === 0) continue; // relative never fires on 0
+        const delta = value < 64 ? value * 0.01 : -(value - 64) * 0.01;
         this._executeRelativeVolumeAction(key, delta);
+        this.mixer.onControlChange?.();
+
+      } else if (m.type === 'cc_absolute') {
+        const vol = (value / 127) * 1.25;
+        this._executeVolumeAction(key, vol);
+        this.mixer.onControlChange?.();
+
+      } else if (m.type === 'cc_auto') {
+        // Sticky runtime detection: once we see an out-of-relative-zone value, the
+        // CC is permanently classified as absolute for this session.
+        const cacheKey = `${channel}:${ccNum}`;
+        if (!inRelativeZone) this._ccAbsoluteCache.set(cacheKey, true);
+
+        if (this._ccAbsoluteCache.get(cacheKey)) {
+          const vol = (value / 127) * 1.25;
+          this._executeVolumeAction(key, vol);
+        } else {
+          if (value === 0) continue;
+          const delta = value < 64 ? value * 0.01 : -(value - 64) * 0.01;
+          this._executeRelativeVolumeAction(key, delta);
+        }
         this.mixer.onControlChange?.();
       }
     }

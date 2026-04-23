@@ -60,6 +60,7 @@
     "noteMapping": "Note {note} Ch{channel}",
     "pitchbendMapping": "PitchBend Ch{channel}",
     "ccMapping": "CC{cc} Ch{channel}",
+    "ccAutoMapping": "CC{cc} Ch{channel} (авто)",
     "noMappingsAlert": "Нет сохранённых MIDI-маппингов для экспорта."
   },
 
