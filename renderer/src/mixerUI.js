@@ -10,8 +10,13 @@ import { SoundboardConfigDialog } from './soundboardConfigDialog.js';
 import { filesToPlaylistItems, PlaylistDialog } from './playlistDialog.js';
 import { AMBIENT_SIZE }           from './ambientMixer.js';
 import { t }                      from './i18n.js';
+import { MissingFilesRegistry }  from './missingFilesRegistry.js';
+import { checkMissingFiles, MissingFilesDialog } from './missingFilesDialog.js';
 
 const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif']);
+
+const FADE_MS      = 3000; // crossfade between tracks (prev/next)
+const FADE_STOP_MS = 300;  // play/stop, mute, solo
 
 /** Convert a local file path to a file:// URL for use in <img src>. */
 function _fileUrl(p) {
@@ -53,12 +58,22 @@ function _fmtMapping(m) {
 
 export class MixerUI {
   constructor(mixer) {
-    this.mixer        = mixer;
-    this.midi         = null;   // set by app.js after midi init
-    this._dragSource  = null;
-    this._controlDown = false;
-    this._mappingMode = false;
+    this.mixer             = mixer;
+    this.midi              = null;   // set by app.js after midi init
+    this._dragSource       = null;
+    this._controlDown      = false;
+    this._mappingMode      = false;
+    this._missingChannels  = new Map(); // 'music-0' → Set<path>
+    this._skipMissingCheck = false;
+    this._webServerRunning = false;
+    this._webServerUrl     = '';
+
     this._bindStaticEvents();
+
+    // Listen for playlist changes from PlaylistDialog (any panel)
+    document.addEventListener('playlist-changed', (e) => {
+      this._onPlaylistChanged(e.detail.panelId, e.detail.playlist);
+    });
   }
 
   // ─── Full render ─────────────────────────────────────────────────────────────
@@ -251,9 +266,14 @@ export class MixerUI {
     });
 
     // ── Global play/stop ──
-    this._on('playMix', 'click', () => {
-      if (this.mixer.playing) this.mixer.stop();
-      else this.mixer.start();
+    this._on('playMix', 'click', async () => {
+      if (this.mixer.playing) {
+        const playing = this.mixer.channels.filter(ch => ch.playing);
+        if (playing.length) await Promise.all(playing.map(ch => ch.fadeOutAndStop(FADE_STOP_MS)));
+        this.mixer.playing = false;
+      } else {
+        this.mixer.start(undefined, FADE_STOP_MS);
+      }
       this.updatePlayState();
     });
 
@@ -272,7 +292,7 @@ export class MixerUI {
     });
     this._on('mute-master', 'click', async () => {
       const mute = !this.mixer.master.getMute();
-      this.mixer.master.setMute(mute);
+      this.mixer.master.setMuteFade(mute, FADE_STOP_MS);
       this._setMuteColor('mute-master', mute);
       await this._saveMasterMute(mute);
     });
@@ -349,13 +369,13 @@ export class MixerUI {
     // Mute
     this._on(`mute-${i}`, 'click', async () => {
       const mute = !this.mixer.channels[i].getMute();
-      this.mixer.channels[i].setMute(mute);
+      this.mixer.channels[i].setMuteFade(mute, FADE_STOP_MS);
       this._setMuteColor(`mute-${i}`, mute);
       await this._saveChannelSetting(i, 'mute', mute);
     });
 
     // Solo
-    this._on(`solo-${i}`, 'click', () => { this.mixer.toggleSolo(i); });
+    this._on(`solo-${i}`, 'click', () => { this.mixer.toggleSolo(i, FADE_STOP_MS); });
 
     // Link
     this._on(`link-${i}`, 'click', async () => {
@@ -367,16 +387,36 @@ export class MixerUI {
     });
 
     // Play/stop individual channel
-    this._on(`playSound-${i}`, 'click', () => {
+    this._on(`playSound-${i}`, 'click', async () => {
       const ch = this.mixer.channels[i];
-      if (ch.playing) this.mixer.stop(i);
-      else            this.mixer.start(i);
+      if (ch.playing) {
+        await ch.fadeOutAndStop(FADE_STOP_MS);
+        this.mixer.playing = this.mixer.channels.some(c => c.playing);
+      } else {
+        this.mixer.start(i, FADE_STOP_MS);
+      }
       this.updatePlayState();
     });
 
-    // Prev / Next track
-    this._on(`prevTrack-${i}`, 'click', () => this.mixer.channels[i].previous());
-    this._on(`nextTrack-${i}`, 'click', () => this.mixer.channels[i].next());
+    // Prev / Next track — crossfade when playing, plain advance otherwise
+    this._on(`prevTrack-${i}`, 'click', async () => {
+      const ch = this.mixer.channels[i];
+      if (ch.playing && ch.sourceArray?.length) {
+        const newIdx = (ch.currentlyPlaying - 1 + ch.sourceArray.length) % ch.sourceArray.length;
+        await ch._crossfadeTo(newIdx, FADE_MS);
+      } else {
+        ch.previous();
+      }
+    });
+    this._on(`nextTrack-${i}`, 'click', async () => {
+      const ch = this.mixer.channels[i];
+      if (ch.playing && ch.sourceArray?.length) {
+        const newIdx = (ch.currentlyPlaying + 1) % ch.sourceArray.length;
+        await ch._crossfadeTo(newIdx, FADE_MS);
+      } else {
+        ch.next();
+      }
+    });
 
     // Config dialog (repeat / timing / playback rate / source)
     this._on(`config-${i}`, 'click', () => {
@@ -843,7 +883,18 @@ export class MixerUI {
 
   _on(id, event, handler) {
     const el = this._el(id);
-    if (el) el.addEventListener(event, handler);
+    if (!el) return;
+    el.addEventListener(event, (...args) => {
+      const result = handler(...args);
+      // Fire immediately (before Storage writes) so the debounce timer is tied
+      // to user actions, not to async IPC completion. If we waited for the Promise,
+      // each Storage write would reset the 50ms timer, causing multi-second delays
+      // when the user drags a slider continuously.
+      if (event === 'input' || event === 'click' || event === 'change') {
+        this.mixer.onControlChange?.();
+      }
+      return result;
+    });
   }
 
   _setMuteColor(id, mute) {
@@ -940,6 +991,28 @@ export class MixerUI {
               <i class="fas fa-file-import"></i> ${t('settings.importProfiles')}
             </button>
           </div>
+          <div class="settings-row" style="margin-top:8px">
+            <button class="settings-btn" id="settingsCheckFiles">
+              <i class="fas fa-search"></i> ${t('settings.checkMissingFiles')}
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">${t('settings.remoteControlSection')}</div>
+          <div class="settings-row" id="remoteControlRow">
+            <button class="settings-btn" id="settingsRemoteStart"
+              style="${this._webServerRunning ? 'display:none' : ''}">
+              <i class="fas fa-wifi"></i> ${t('settings.remoteControlStart')}
+            </button>
+            <div id="remoteActiveRow" style="display:${this._webServerRunning ? 'flex' : 'none'}; align-items:center; gap:8px; flex-wrap:wrap">
+              <code id="remoteControlUrl" class="settings-remote-url"
+                title="${t('settings.remoteControlCopy')}">${this._webServerUrl}</code>
+              <button class="settings-btn settings-btn-danger" id="settingsRemoteStop">
+                <i class="fas fa-stop"></i> ${t('settings.remoteControlStop')}
+              </button>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -973,6 +1046,37 @@ export class MixerUI {
       ?.addEventListener('click', () => this._exportProfiles());
     document.getElementById('settingsProfileImport')
       ?.addEventListener('click', () => this._importProfiles());
+
+    // Missing files check
+    document.getElementById('settingsCheckFiles')?.addEventListener('click', async () => {
+      closeSettings();
+      await this._runMissingFilesCheck({ silent: false, forceDialog: true });
+    });
+
+    // Remote control
+    const _updateRemoteUI = (running, url) => {
+      const startBtn  = document.getElementById('settingsRemoteStart');
+      const activeRow = document.getElementById('remoteActiveRow');
+      const urlCode   = document.getElementById('remoteControlUrl');
+      if (startBtn)  startBtn.style.display  = running ? 'none' : '';
+      if (activeRow) activeRow.style.display  = running ? 'flex' : 'none';
+      if (urlCode)   urlCode.textContent      = url ?? '';
+    };
+    document.getElementById('settingsRemoteStart')?.addEventListener('click', async () => {
+      const { url } = await window.api.web.serverStart();
+      this._webServerRunning = true;
+      this._webServerUrl     = url;
+      _updateRemoteUI(true, url);
+    });
+    document.getElementById('remoteControlUrl')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(this._webServerUrl).catch(() => {});
+    });
+    document.getElementById('settingsRemoteStop')?.addEventListener('click', async () => {
+      await window.api.web.serverStop();
+      this._webServerRunning = false;
+      this._webServerUrl     = '';
+      _updateRemoteUI(false, '');
+    });
 
     // Drag-behaviour — load saved values, update hint, save on change
     const HINTS = {
@@ -1467,6 +1571,115 @@ export class MixerUI {
     const toAdd = Array.isArray(data) ? data : [data];
     await Storage.setSoundscapes(existing.concat(toAdd));
     await this.mixer.setSoundscape(this.mixer.currentSoundscape);
+  }
+
+  // ─── Missing files check & highlight ────────────────────────────────────────
+
+  /**
+   * Run the missing-files check for the current soundscape.
+   * @param {{ silent?: boolean, forceDialog?: boolean }} opts
+   *   silent      — don't open the dialog even if files are missing (just update highlights)
+   *   forceDialog — open dialog even when 0 missing files (manual trigger)
+   */
+  async _runMissingFilesCheck({ silent = false, forceDialog = false } = {}) {
+    if (this._skipMissingCheck) {
+      this._skipMissingCheck = false;
+      return;
+    }
+
+    const soundscapes = await Storage.getSoundscapes();
+    const ss = soundscapes[this.mixer.currentSoundscape];
+    if (!ss) return;
+
+    const entries = await checkMissingFiles(ss);
+
+    // Update registry
+    MissingFilesRegistry.setAll(entries.map(e => e.path));
+
+    // Rebuild channel map
+    this._missingChannels.clear();
+    for (const entry of entries) {
+      const key = `${entry.channelType}-${entry.channelIdx}`;
+      if (!this._missingChannels.has(key)) this._missingChannels.set(key, new Set());
+      this._missingChannels.get(key).add(entry.path);
+    }
+
+    this._applyMissingHighlights();
+
+    if (!silent && (entries.length > 0 || forceDialog)) {
+      if (entries.length === 0) {
+        alert(t('missingFiles.noMissing'));
+        return;
+      }
+      new MissingFilesDialog(entries, {
+        onApply: async (remap) => {
+          if (!Object.keys(remap).length) return;
+          await this.mixer.applyFileRemap(remap);
+
+          // Reload soundscape without re-triggering the check
+          this._skipMissingCheck = true;
+          await this.mixer.setSoundscape(this.mixer.currentSoundscape);
+
+          // Remove fixed paths from tracking
+          const fixedPaths = new Set(Object.keys(remap));
+          MissingFilesRegistry.removeMany(fixedPaths);
+          for (const paths of this._missingChannels.values()) {
+            for (const p of fixedPaths) paths.delete(p);
+          }
+          for (const [key, paths] of this._missingChannels) {
+            if (paths.size === 0) this._missingChannels.delete(key);
+          }
+          this._applyMissingHighlights();
+        }
+      }).open();
+    }
+  }
+
+  /** Add/remove .has-missing-files class on channel elements. */
+  _applyMissingHighlights() {
+    for (let i = 0; i < 8; i++) {
+      const el = this._el(`box-${i}`);
+      if (el) el.classList.toggle('has-missing-files',
+        (this._missingChannels.get(`music-${i}`)?.size ?? 0) > 0);
+    }
+    for (let i = 0; i < AMBIENT_SIZE; i++) {
+      const el = this._el(`ambBox-${i}`);
+      if (el) el.classList.toggle('has-missing-files',
+        (this._missingChannels.get(`ambient-${i}`)?.size ?? 0) > 0);
+    }
+    for (let i = 0; i < 25; i++) {
+      const el = this._el(`sbButton-${i}`);
+      if (el) el.classList.toggle('has-missing-files',
+        (this._missingChannels.get(`soundboard-${i}`)?.size ?? 0) > 0);
+    }
+  }
+
+  /**
+   * Called via 'playlist-changed' custom event after any PlaylistDialog._save().
+   * Removes deleted missing paths from tracking and updates highlights.
+   */
+  _onPlaylistChanged(panelId, playlist) {
+    let channelType, channelIdx;
+    const m1 = panelId.match(/^ch-(\d+)$/);
+    const m2 = panelId.match(/^amb-(\d+)$/);
+    const m3 = panelId.match(/^sb-(\d+)$/);
+    if      (m1) { channelType = 'music';      channelIdx = +m1[1]; }
+    else if (m2) { channelType = 'ambient';    channelIdx = +m2[1]; }
+    else if (m3) { channelType = 'soundboard'; channelIdx = +m3[1]; }
+    else return;
+
+    const key = `${channelType}-${channelIdx}`;
+    const channelMissing = this._missingChannels.get(key);
+    if (!channelMissing || channelMissing.size === 0) return;
+
+    const newPaths = new Set(playlist.map(item => item.path));
+    const removed  = [...channelMissing].filter(p => !newPaths.has(p));
+    if (!removed.length) return;
+
+    MissingFilesRegistry.removeMany(removed);
+    for (const p of removed) channelMissing.delete(p);
+    if (channelMissing.size === 0) this._missingChannels.delete(key);
+    this._applyMissingHighlights();
   }
 
   async _exportProfiles() {

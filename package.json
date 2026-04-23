@@ -20,7 +20,8 @@
     "electron-builder": "^24.0.0"
   },
   "dependencies": {
-    "electron-store": "^8.1.0"
+    "electron-store": "^8.1.0",
+    "ws": "^8.20.0"
   },
   "optionalDependencies": {
     "dmg-license": "^1.0.11"
@@ -36,6 +37,7 @@
       "renderer/**",
       "assets/**",
       "translations/**",
+      "web-client/**",
       "node_modules/**"
     ],
     "extraResources": [],

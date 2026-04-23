@@ -17,6 +17,8 @@
  */
 import { Storage } from './storage.js';
 
+const FADE_STOP_MS = 300;
+
 export class MidiController {
   constructor(mixer) {
     this.mixer          = mixer;
@@ -26,6 +28,8 @@ export class MidiController {
     this._listeningFor  = null;   // entityKey currently being mapped
     this._listeningType = null;   // 'noteon' | 'pitchbend'
     this._access        = null;
+    this._saveTimer     = null;   // debounce handle for deferred storage writes
+    this._recentNoteOns = new Map(); // `ch:note` → timestamp, for button debounce
 
     // Callbacks — set by the UI
     this.onDevicesChanged  = null;  // (devices[]) → void
@@ -163,9 +167,17 @@ export class MidiController {
   // ── Normal-mode dispatch ───────────────────────────────────────────────────
 
   _dispatchNoteOn(channel, note) {
+    // Many controllers send noteOn both on press and release (velocity > 0 both times).
+    // Debounce per note: ignore if the same note fired within 150 ms.
+    const nKey = `${channel}:${note}`;
+    const now  = Date.now();
+    if ((this._recentNoteOns.get(nKey) ?? 0) > now - 150) return;
+    this._recentNoteOns.set(nKey, now);
+
     for (const [key, m] of Object.entries(this.mappings)) {
       if (m.type === 'noteon' && m.channel === channel && m.note === note) {
         this._executeAction(key);
+        this.mixer.onControlChange?.();
       }
     }
   }
@@ -176,6 +188,7 @@ export class MidiController {
     for (const [key, m] of Object.entries(this.mappings)) {
       if (m.type === 'pitchbend' && m.channel === channel) {
         this._executeVolumeAction(key, value * 1.25);
+        this.mixer.onControlChange?.();
       }
     }
   }
@@ -188,18 +201,29 @@ export class MidiController {
 
     if ((m = entityKey.match(/^ch-(\d+)-mute$/))) {
       const i = +m[1], ch = mixer.channels[i];
-      if (ch) { ch.setMute(!ch.getMute()); mixer.ui?.updateMute(i, ch.getMute()); }
+      if (ch) {
+        const mute = !ch.getMute();
+        ch.setMuteFade(mute, FADE_STOP_MS);
+        mixer.ui?.updateMute(i, mute);
+      }
       return;
     }
     if ((m = entityKey.match(/^ch-(\d+)-solo$/))) {
-      mixer.toggleSolo(+m[1]);
+      mixer.toggleSolo(+m[1], FADE_STOP_MS);
       return;
     }
     if ((m = entityKey.match(/^ch-(\d+)-play$/))) {
       const i = +m[1], ch = mixer.channels[i];
       if (ch) {
-        if (ch.playing) mixer.stop(i); else mixer.start(i);
-        mixer.ui?.updatePlayState();
+        if (ch.playing) {
+          ch.fadeOutAndStop(FADE_STOP_MS, false).then(() => {
+            mixer.playing = mixer.channels.some(c => c.playing);
+            mixer.ui?.updatePlayState();
+          });
+        } else {
+          mixer.start(i, FADE_STOP_MS);
+          mixer.ui?.updatePlayState();
+        }
       }
       return;
     }
@@ -235,11 +259,12 @@ export class MidiController {
     for (const [key, m] of Object.entries(this.mappings)) {
       if (m.type === 'cc_relative' && m.channel === channel && m.cc === ccNum) {
         this._executeRelativeVolumeAction(key, delta);
+        this.mixer.onControlChange?.();
       }
     }
   }
 
-  async _executeRelativeVolumeAction(entityKey, delta) {
+  _executeRelativeVolumeAction(entityKey, delta) {
     const mixer = this.mixer;
     if (!mixer) return;
 
@@ -247,13 +272,7 @@ export class MidiController {
       const newVol = Math.max(0, Math.min(1.25, mixer.ambientMixer.getMasterVolume() + delta));
       mixer.ambientMixer.setMasterVolume(newVol);
       mixer.ui?.updateAmbientMasterVolume(newVol);
-      const soundscapes = await Storage.getSoundscapes();
-      const ss = soundscapes[mixer.currentSoundscape];
-      if (ss) {
-        if (!ss.ambientMaster) ss.ambientMaster = { volume: 1 };
-        ss.ambientMaster.volume = newVol;
-        await Storage.setSoundscapes(soundscapes);
-      }
+      this._deferSave();
       return;
     }
     const m = entityKey.match(/^amb-(\d+)-volume$/);
@@ -264,19 +283,12 @@ export class MidiController {
         const newVol = Math.max(0, Math.min(1.25, ch.settings.volume + delta));
         ch.setVolume(newVol);
         mixer.ui?.updateAmbientChannelVolume(i, newVol);
-        const soundscapes = await Storage.getSoundscapes();
-        const ss = soundscapes[mixer.currentSoundscape];
-        if (ss) {
-          if (!ss.ambient) ss.ambient = [];
-          if (!ss.ambient[i]) ss.ambient[i] = { settings: { volume: 1, name: '' }, soundData: null };
-          ss.ambient[i].settings.volume = newVol;
-          await Storage.setSoundscapes(soundscapes);
-        }
+        this._deferSave();
       }
     }
   }
 
-  async _executeVolumeAction(entityKey, volume) {
+  _executeVolumeAction(entityKey, volume) {
     const mixer = this.mixer;
     if (!mixer) return;
     volume = Math.max(0, Math.min(1.25, volume));
@@ -284,23 +296,13 @@ export class MidiController {
     if (entityKey === 'master-volume') {
       mixer.master.setVolume(volume);
       mixer.ui?.updateMasterVolume(volume);
-      const soundscapes = await Storage.getSoundscapes();
-      if (soundscapes[mixer.currentSoundscape]) {
-        soundscapes[mixer.currentSoundscape].master.settings.volume = volume;
-        await Storage.setSoundscapes(soundscapes);
-      }
+      this._deferSave();
       return;
     }
     if (entityKey === 'amb-master-volume') {
       mixer.ambientMixer?.setMasterVolume(volume);
       mixer.ui?.updateAmbientMasterVolume(volume);
-      const soundscapes = await Storage.getSoundscapes();
-      const ss = soundscapes[mixer.currentSoundscape];
-      if (ss) {
-        if (!ss.ambientMaster) ss.ambientMaster = { volume: 1 };
-        ss.ambientMaster.volume = volume;
-        await Storage.setSoundscapes(soundscapes);
-      }
+      this._deferSave();
       return;
     }
     let m = entityKey.match(/^ch-(\d+)-volume$/);
@@ -308,17 +310,15 @@ export class MidiController {
       const i = +m[1], ch = mixer.channels[i];
       if (ch) {
         if (ch.getLink()) {
-          await mixer.setLinkVolumes(volume, i);  // already saves to storage
+          // setLinkVolumes does its own Storage write — call fire-and-forget,
+          // _deferSave will overwrite with final in-memory values anyway.
+          mixer.setLinkVolumes(volume, i).catch(() => {});
           mixer.ui?.updateAllChannelVolumes();
         } else {
           ch.setVolume(volume);
           mixer.ui?.updateChannelVolume(i, volume);
-          const soundscapes = await Storage.getSoundscapes();
-          if (soundscapes[mixer.currentSoundscape]) {
-            soundscapes[mixer.currentSoundscape].channels[i].settings.volume = volume;
-            await Storage.setSoundscapes(soundscapes);
-          }
         }
+        this._deferSave();
       }
       return;
     }
@@ -329,16 +329,47 @@ export class MidiController {
       if (ch) {
         ch.setVolume(volume);
         mixer.ui?.updateAmbientChannelVolume(i, volume);
-        const soundscapes = await Storage.getSoundscapes();
-        const ss = soundscapes[mixer.currentSoundscape];
-        if (ss) {
-          if (!ss.ambient) ss.ambient = [];
-          if (!ss.ambient[i]) ss.ambient[i] = { settings: { volume: 1, name: '' }, soundData: null };
-          ss.ambient[i].settings.volume = volume;
-          await Storage.setSoundscapes(soundscapes);
-        }
+        this._deferSave();
       }
     }
+  }
+
+  /**
+   * Schedule a single Storage write 300 ms after the last MIDI volume event.
+   * Replaces per-event getSoundscapes/setSoundscapes calls, which caused
+   * hundreds of concurrent Promises holding full soundscapes copies in memory.
+   */
+  _deferSave() {
+    clearTimeout(this._saveTimer);
+    this._saveTimer = setTimeout(async () => {
+      try {
+        const mixer = this.mixer;
+        if (!mixer) return;
+        const soundscapes = await Storage.getSoundscapes();
+        const ss = soundscapes[mixer.currentSoundscape];
+        if (!ss) return;
+
+        for (let i = 0; i < mixer.mixerSize; i++) {
+          if (ss.channels?.[i]?.settings != null)
+            ss.channels[i].settings.volume = mixer.channels[i].settings.volume ?? 1;
+        }
+        if (ss.master?.settings != null)
+          ss.master.settings.volume = mixer.master.settings.volume ?? 1;
+        if (Array.isArray(ss.ambient)) {
+          for (let i = 0; i < ss.ambient.length; i++) {
+            if (ss.ambient[i]?.settings != null && mixer.ambientMixer?.channels[i])
+              ss.ambient[i].settings.volume = mixer.ambientMixer.channels[i].settings?.volume ?? 1;
+          }
+        }
+        if (ss.ambientMaster != null)
+          ss.ambientMaster.volume = mixer.ambientMixer?.getMasterVolume?.() ?? 1;
+
+        soundscapes[mixer.currentSoundscape] = ss;
+        await Storage.setSoundscapes(soundscapes);
+      } catch (err) {
+        console.error('[MIDI] deferred save failed:', err);
+      }
+    }, 300);
   }
 
   _uiUpdate() {

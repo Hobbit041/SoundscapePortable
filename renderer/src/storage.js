@@ -43,6 +43,15 @@ export const Storage = {
     await this.set('midiMappings', data);
   },
 
+  // ─── Last active soundscape ──────────────────────────────────────────────
+  async getLastSoundscape() {
+    return await this.get('lastSoundscape', 0);
+  },
+
+  async setLastSoundscape(idx) {
+    await this.set('lastSoundscape', idx);
+  },
+
   // ─── Drop behavior ───────────────────────────────────────────────────────
   async getDropBehavior() {
     return await this.get('dropBehavior', { music: 'overwrite', bg: 'overwrite', sb: 'overwrite' });

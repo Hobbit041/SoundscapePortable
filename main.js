@@ -1,6 +1,9 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const os = require('os');
+const { WebSocketServer } = require('ws');
 const Store = require('electron-store');
 
 const store = new Store();
@@ -192,6 +195,42 @@ ipcMain.handle('load-midi-file', async () => {
   return JSON.parse(raw);
 });
 
+// Batch file existence check: returns { [path]: boolean }
+ipcMain.handle('check-files-exist', (_, paths) => {
+  const result = {};
+  for (const p of paths) {
+    try { result[p] = fs.existsSync(p); }
+    catch (_) { result[p] = false; }
+  }
+  return result;
+});
+
+// Search filenames in a folder and one level of subdirectories
+// Returns { [filename]: foundAbsolutePath }
+ipcMain.handle('find-files-in-folder', (_, folderPath, filenames) => {
+  const nameSet = new Set(filenames);
+  const found   = {};
+
+  const scanDir = (dir) => {
+    try {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.isFile() && nameSet.has(e.name) && !(e.name in found)) {
+          found[e.name] = path.join(dir, e.name).replace(/\\/g, '/');
+        }
+      }
+    } catch (_) {}
+  };
+
+  scanDir(folderPath);
+  try {
+    for (const e of fs.readdirSync(folderPath, { withFileTypes: true })) {
+      if (e.isDirectory()) scanDir(path.join(folderPath, e.name));
+    }
+  } catch (_) {}
+
+  return found;
+});
+
 // Save a .soundscapeProfiles file (all profiles)
 ipcMain.handle('save-profiles-file', async (_, data) => {
   const result = await dialog.showSaveDialog(mainWindow, {
@@ -237,3 +276,106 @@ ipcMain.handle('path-to-url', (_, filePath) => {
   if (filePath.startsWith('http') || filePath.startsWith('file://')) return filePath;
   return 'file:///' + filePath.replace(/\\/g, '/').replace(/^\//, '');
 });
+
+// ─── Web Remote Server ───────────────────────────────────────────────────────
+
+const WEB_PORT = 3000;
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg']);
+const IMAGE_MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+
+let _webServer = null;
+let _wss       = null;
+let _wsClient  = null;
+
+function _getLocalIP() {
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const iface of ifaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+    }
+  }
+  return '127.0.0.1';
+}
+
+function _serveFile(res, filePath, contentType) {
+  try {
+    const content = fs.readFileSync(filePath);
+    res.writeHead(200, { 'Content-Type': contentType });
+    res.end(content);
+  } catch {
+    res.writeHead(404);
+    res.end('Not found');
+  }
+}
+
+function _startWebServer() {
+  if (_webServer) return;
+
+  _webServer = http.createServer((req, res) => {
+    const url      = new URL(req.url, `http://localhost:${WEB_PORT}`);
+    const pathname = url.pathname;
+
+    if (pathname === '/' || pathname === '/index.html') {
+      _serveFile(res, path.join(__dirname, 'web-client', 'index.html'), 'text/html; charset=utf-8');
+    } else if (pathname === '/app.js') {
+      _serveFile(res, path.join(__dirname, 'web-client', 'app.js'), 'application/javascript; charset=utf-8');
+    } else if (pathname === '/style.css') {
+      _serveFile(res, path.join(__dirname, 'renderer', 'style.css'), 'text/css; charset=utf-8');
+    } else if (pathname === '/api/image') {
+      const filePath = url.searchParams.get('path') || '';
+      const ext = path.extname(filePath).toLowerCase();
+      if (!filePath || !IMAGE_EXTS.has(ext)) { res.writeHead(404); res.end(); return; }
+      try {
+        if (!fs.existsSync(filePath)) { res.writeHead(404); res.end(); return; }
+        res.writeHead(200, { 'Content-Type': IMAGE_MIME[ext] || 'application/octet-stream' });
+        fs.createReadStream(filePath).pipe(res);
+      } catch { res.writeHead(500); res.end(); }
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  });
+
+  _wss = new WebSocketServer({ server: _webServer });
+
+  _wss.on('connection', (ws) => {
+    if (_wsClient && _wsClient.readyState === 1 /* OPEN */) _wsClient.close();
+    _wsClient = ws;
+
+    // Ask renderer for current state snapshot
+    mainWindow?.webContents.send('web-request-state');
+
+    ws.on('message', (data) => {
+      try {
+        const cmd = JSON.parse(data.toString());
+        mainWindow?.webContents.send('web-command', cmd);
+      } catch { /* ignore malformed messages */ }
+    });
+
+    ws.on('close', () => { if (_wsClient === ws) _wsClient = null; });
+    ws.on('error', () => { if (_wsClient === ws) _wsClient = null; });
+  });
+
+  _webServer.listen(WEB_PORT);
+}
+
+function _stopWebServer() {
+  if (_wsClient) { _wsClient.close(); _wsClient = null; }
+  if (_wss)       { _wss.close(); _wss = null; }
+  if (_webServer) { _webServer.close(); _webServer = null; }
+}
+
+ipcMain.handle('web-server-start', () => {
+  _startWebServer();
+  return { url: `http://${_getLocalIP()}:${WEB_PORT}` };
+});
+
+ipcMain.handle('web-server-stop', () => { _stopWebServer(); });
+
+ipcMain.handle('web-broadcast', (_, state) => {
+  if (_wsClient?.readyState === 1 /* OPEN */) {
+    _wsClient.send(JSON.stringify({ type: 'state', data: state }));
+  }
+});
+
+app.on('before-quit', () => { _stopWebServer(); });

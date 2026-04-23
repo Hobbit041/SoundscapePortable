@@ -8,6 +8,7 @@ import { MidiController } from './src/midi.js';
 import { Storage }        from './src/storage.js';
 import { ChannelDrag }    from './src/channelDrag.js';
 import { initI18n, t }   from './src/i18n.js';
+import { WebBridge }      from './src/webBridge.js';
 
 let mixer;
 let midi;
@@ -45,9 +46,17 @@ async function main() {
 
   const ui = new MixerUI(mixer);
   mixer.ui = ui;
+  // Web remote bridge
+  const bridge = new WebBridge();
+  bridge.init(mixer);
+
+  // Called after any Electron-side control interaction to sync browser
+  mixer.onControlChange = () => bridge.push();
+
   // Wire up rendering: called whenever mixer state changes
-  mixer.onUIUpdate    = () => ui.render();
+  mixer.onUIUpdate     = () => { ui.render(); bridge.push(); };
   mixer.onSceneRemoved = (idx) => ui.onSceneRemoved(idx);
+  mixer.onProfileLoaded = () => ui._runMissingFilesCheck();
 
   // MIDI
   midi = new MidiController(mixer);

@@ -23,6 +23,12 @@ contextBridge.exposeInMainWorld('api', {
 
     /** Convert absolute path to file:// URL usable by <audio> */
     toUrl: (filePath) => ipcRenderer.invoke('path-to-url', filePath),
+
+    /** Batch existence check: returns { [path]: boolean } */
+    checkMany: (paths) => ipcRenderer.invoke('check-files-exist', paths),
+
+    /** Search filenames in folder + 1 level of subdirs: { [filename]: foundPath } */
+    findInFolder: (folderPath, names) => ipcRenderer.invoke('find-files-in-folder', folderPath, names),
   },
 
   // ─── Import / Export ──────────────────────────────────────────────────────
@@ -60,4 +66,13 @@ contextBridge.exposeInMainWorld('api', {
 
   // ─── Translations ─────────────────────────────────────────────────────────
   getI18n: () => ipcRenderer.invoke('get-i18n'),
+
+  // ─── Web Remote Control ───────────────────────────────────────────────────
+  web: {
+    serverStart:    ()      => ipcRenderer.invoke('web-server-start'),
+    serverStop:     ()      => ipcRenderer.invoke('web-server-stop'),
+    broadcast:      (state) => ipcRenderer.invoke('web-broadcast', state),
+    onCommand:      (cb)    => ipcRenderer.on('web-command',       (_, cmd) => cb(cmd)),
+    onRequestState: (cb)    => ipcRenderer.on('web-request-state', ()       => cb()),
+  },
 });

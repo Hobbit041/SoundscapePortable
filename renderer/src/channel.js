@@ -24,6 +24,7 @@ export class Channel {
   firstLoop        = true;
   audioElement     = undefined;
   node             = undefined;
+  _pendingFadeInMs = 0;
 
   static DEF_SETTINGS = {
     channel: 0, name: '', volume: 1, pan: 0,
@@ -192,7 +193,13 @@ export class Channel {
 
   // ─── Playback ────────────────────────────────────────────────────────────────
 
-  play(currentTime = undefined) {
+  play(currentTime = undefined, fadeInMs = 0) {
+    // Consume a pending fade-in queued by the prev/next handlers
+    if (fadeInMs <= 0 && this._pendingFadeInMs > 0) {
+      fadeInMs = this._pendingFadeInMs;
+      this._pendingFadeInMs = 0;
+    }
+
     if (!this.loaded || (this.playing && !this.paused && this.channelNr < 100)) return;
 
     if (!this.audioElement) {
@@ -230,6 +237,12 @@ export class Channel {
     this.audioElement.play().catch(() => {});
     this.playing = true;
     this.paused  = false;
+
+    // Quick fade-in — skip when timing.fadeIn already handles it
+    if (fadeInMs > 0 && (timing.fadeIn ?? 0) <= 0) {
+      this.audioElement.volume = 0;
+      this._fadeAudioElement(0, 1, fadeInMs);
+    }
 
     const playBtn = document.getElementById(`playSound-${this.channelNr}`);
     if (playBtn) playBtn.innerHTML = '<i class="fas fa-stop"></i>';
@@ -446,6 +459,118 @@ export class Channel {
     if (pbr === this.settings.playbackRate) this.settings.playbackRate = { ...pbr, rate };
     this.audioElement.playbackRate  = rate;
     this.audioElement.preservesPitch = !!pbr.preservePitch;
+  }
+
+  /** Linearly fade an audio element's volume from `from` to `to` over `ms` ms. Returns a Promise.
+   *  Uses `this.audioElement` when `el` is omitted. */
+  _fadeAudioElement(from, to, ms, el = null) {
+    const target = el ?? this.audioElement;
+    return new Promise(resolve => {
+      if (!target || ms <= 0) {
+        if (target) target.volume = Math.max(0, Math.min(1, to));
+        resolve();
+        return;
+      }
+      const steps = Math.max(1, Math.round(ms / 20));
+      const stepSize = (to - from) / steps;
+      let volume = from;
+      let counter = 0;
+      target.volume = Math.max(0, Math.min(1, from));
+      const interval = setInterval(() => {
+        volume += stepSize;
+        counter++;
+        target.volume = Math.max(0, Math.min(1, volume));
+        if (counter >= steps) {
+          target.volume = Math.max(0, Math.min(1, to));
+          clearInterval(interval);
+          resolve();
+        }
+      }, 20);
+    });
+  }
+
+  /**
+   * Crossfade to a track by index: fade out the current element while fading in the new one
+   * simultaneously. Does nothing if not currently playing.
+   */
+  async _crossfadeTo(newIdx, fadeMs) {
+    const newSource = this.sourceArray[newIdx];
+    if (!newSource) return;
+
+    const outgoingEl   = this.audioElement;
+    const outgoingNode = this.node;
+
+    this.currentlyPlaying = newIdx;
+    this.source           = newSource;
+    this.soundData.source = newSource;
+
+    const url = newSource.startsWith('file://') ? newSource : await window.api.fs.toUrl(newSource);
+
+    const newEl = document.createElement('audio');
+    newEl.crossOrigin = 'anonymous';
+    newEl.src    = url;
+    newEl.volume = 0;
+
+    // Apply playback rate
+    if (this.settings.playbackRate) {
+      const pbr = this.settings.playbackRate;
+      newEl.playbackRate   = Math.max(0.25, Math.min(4, pbr.rate ?? 1));
+      newEl.preservesPitch = !!pbr.preservePitch;
+    }
+
+    // Apply start time
+    const timing = this.settings.timing ?? {};
+    newEl.currentTime = timing.startTime ?? 0;
+
+    // Connect new node directly to the shared gain chain (keeps old node alive)
+    const newNode = this.context.createMediaElementSource(newEl);
+    newNode.connect(this.effects.gain.node);
+
+    if (this.context.state === 'running') newEl.play().catch(() => {});
+
+    // Run both fades in parallel
+    await Promise.all([
+      outgoingEl
+        ? this._fadeAudioElement(outgoingEl.volume, 0, fadeMs, outgoingEl)
+        : Promise.resolve(),
+      this._fadeAudioElement(0, 1, fadeMs, newEl),
+    ]);
+
+    // Tear down outgoing element (it's paused so timeupdate won't fire on it anymore)
+    if (outgoingEl) outgoingEl.pause();
+    try { outgoingNode?.disconnect(); } catch {}
+
+    // Update references
+    this.audioElement = newEl;
+    this.node         = newNode;
+    this.loaded       = true;
+    this.firstLoop    = false;
+
+    newEl.addEventListener('loadeddata', () => { this.duration = newEl.duration; });
+    newEl.addEventListener('timeupdate', () => this._onTimeUpdate());
+  }
+
+  /** Fade out audio then stop. Resolves after stop() is called. */
+  async fadeOutAndStop(ms, advanceNext = true) {
+    if (!this.audioElement || !this.playing) {
+      this.stop(advanceNext);
+      return;
+    }
+    await this._fadeAudioElement(this.audioElement.volume, 0, ms);
+    this.stop(advanceNext);
+    // Restore volume for next play() (setSource also resets it, this covers the no-advance case)
+    if (this.audioElement) this.audioElement.volume = 1;
+  }
+
+  /** Mute/unmute with a smooth gain ramp over `ms` ms. */
+  setMuteFade(mute, ms) {
+    this.settings.mute = mute;
+    const target = mute ? 0 : (this.settings.volume ?? 1);
+    if (ms > 0 && this.effects.gain) {
+      this.effects.gain.ramp(target, ms / 1000);
+    } else {
+      if (this.effects.gain) this.effects.gain.set(target);
+    }
   }
 
   fade(start, end, time) {

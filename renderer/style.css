@@ -109,9 +109,25 @@ button {
   padding: 4px 8px;
   cursor: pointer;
   font-size: 12px;
-  transition: background 0.15s;
+  transition: background 0.15s, filter 0.07s, transform 0.07s;
 }
 button:hover { background: #3a3a45; }
+
+/* ── Active / press feedback ─────────────────────────────────────────── */
+button:not(:disabled):active {
+  filter: brightness(1.35);
+  transform: translateY(1px);
+}
+/* Tall header controls and tiny icon buttons — brightness only, no downshift */
+.win-btn:not(:disabled):active,
+.fx-close:not(:disabled):active,
+.cfg-reset-btn:not(:disabled):active,
+.scene-trash-btn:not(:disabled):active,
+.midi-chain-btn:not(:disabled):active,
+.midi-trash-btn:not(:disabled):active {
+  filter: brightness(1.5);
+  transform: none;
+}
 
 .btn-play {
   background: var(--accent-dim);
@@ -1148,3 +1164,107 @@ input[type="range"].amb-fader {
   line-height: 1.5;
   min-height: 0;
 }
+
+/* ── MISSING-FILES CHANNEL HIGHLIGHT ─────────────────────────────────── */
+.channel-strip.has-missing-files {
+  background: rgba(220, 50, 50, 0.13);
+}
+.amb-strip.has-missing-files {
+  background: rgba(220, 50, 50, 0.13);
+}
+/* sb-cell.drag-over still wins because it is declared earlier + same specificity resolves to later rule below */
+.sb-cell.has-missing-files {
+  background: rgba(220, 50, 50, 0.20);
+}
+.sb-cell.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* ── MISSING-FILES DIALOG ────────────────────────────────────────────── */
+.mf-panel {
+  width: 580px;
+}
+
+.mf-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.mf-scroll {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.mf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.mf-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface2);
+  padding: 6px 10px;
+  text-align: left;
+  color: var(--text-dim);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+.mf-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--text);
+  vertical-align: middle;
+}
+.mf-col-file {
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mf-col-channel { color: var(--text-dim); }
+.mf-col-status  { white-space: nowrap; }
+.mf-status-missing { color: #ff5555; }
+.mf-status-found   { color: #55cc55; }
+.mf-row-found td   { opacity: 0.55; }
+
+.mf-footer {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── PLAYLIST: MISSING-FILE ROW ──────────────────────────────────────── */
+.pl-row.pl-row-missing {
+  color: #ff5555;
+}
+.pl-row.pl-row-missing .pl-row-label {
+  color: #ff5555;
+}
+
+/* ── SETTINGS: REMOTE CONTROL ───────────────────────────────────────────── */
+.settings-remote-url {
+  display: inline-block;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  user-select: all;
+  transition: border-color .15s;
+}
+.settings-remote-url:hover { border-color: var(--accent); }
+
+.settings-btn-danger {
+  background: var(--mute-off);
+  color: var(--text);
+}
+.settings-btn-danger:hover { background: var(--mute-on); }

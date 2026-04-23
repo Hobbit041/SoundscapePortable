@@ -8,7 +8,13 @@
       "Bash(npx electron-builder:*)",
       "Bash(npm start:*)",
       "Bash(node -e \"require\\('electron'\\)\")",
-      "Bash(ls node_modules/.bin/electron*)"
+      "Bash(ls node_modules/.bin/electron*)",
+      "Bash(npm install:*)",
+      "Bash(node --input-type=commonjs -e ':*)",
+      "Bash(node --input-type=module -e ':*)",
+      "Bash(node --check renderer/src/webBridge.js)",
+      "Bash(node --check renderer/app.js)",
+      "Bash(xargs wc:*)"
     ]
   }
 }

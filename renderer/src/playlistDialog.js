@@ -12,7 +12,8 @@
  *     mode:          'channel' | 'soundboard' | 'ambient'   (default: 'channel')
  *   }).open();
  */
-import { t } from './i18n.js';
+import { t }                      from './i18n.js';
+import { MissingFilesRegistry } from './missingFilesRegistry.js';
 
 const AUDIO_EXT = new Set(['mp3', 'ogg', 'wav', 'flac', 'm4a', 'opus', 'webm']);
 
@@ -155,8 +156,11 @@ export class PlaylistDialog {
     listEl.innerHTML = '';
 
     this.playlist.forEach((item, idx) => {
+      const isMissing = MissingFilesRegistry.has(item.path);
       const row = document.createElement('div');
-      row.className   = 'pl-row' + (this.selectedSet.has(idx) ? ' pl-row-sel' : '');
+      row.className   = 'pl-row'
+        + (this.selectedSet.has(idx) ? ' pl-row-sel' : '')
+        + (isMissing                 ? ' pl-row-missing' : '');
       row.dataset.idx = idx;
       row.draggable   = true;
       row.innerHTML   = `<span class="pl-row-label" title="${item.path}">${item.label}</span>`;
@@ -424,6 +428,11 @@ export class PlaylistDialog {
     if (this._mode === 'soundboard') soundData.sequential = this.sequential;
     if (this._mode === 'ambient')    soundData.autoPlay    = this.autoPlay;
     await this.saveSoundData(soundData);
+
+    // Notify MixerUI so it can update missing-file highlights
+    document.dispatchEvent(new CustomEvent('playlist-changed', {
+      detail: { panelId: this.panelId, playlist: this.playlist }
+    }));
     const ch = this.getChannel();
     if (ch) {
       const urls = await Promise.all(this.playlist.map(item => window.api.fs.toUrl(item.path)));

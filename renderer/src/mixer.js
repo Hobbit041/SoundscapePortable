@@ -21,9 +21,10 @@ export class Mixer {
   highestVolumeIteration = 0;
 
   /** Called by app.js after construction */
-  onUIUpdate    = null;   // function() — call to re-render UI
+  onUIUpdate     = null;  // function() — call to re-render UI
   onSceneRemoved = null;  // (idx) => void — called after a scene is removed
-  ui            = null;   // MixerUI instance — set by app.js
+  onProfileLoaded = null; // () => void — called after setSoundscape completes
+  ui             = null;  // MixerUI instance — set by app.js
 
   constructor() {
     this._init();
@@ -45,7 +46,10 @@ export class Mixer {
     };
     document.addEventListener('click', resume, { once: true });
 
-    await this.setSoundscape(0);
+    const soundscapes = await Storage.getSoundscapes();
+    const saved = await Storage.getLastSoundscape();
+    const startIdx = (saved > 0 && saved < soundscapes.length) ? saved : 0;
+    await this.setSoundscape(startIdx);
   }
 
   /** Trigger UI re-render */
@@ -55,13 +59,13 @@ export class Mixer {
 
   // ─── Playback ─────────────────────────────────────────────────────────────
 
-  start(channel = undefined) {
+  start(channel = undefined, fadeInMs = 0) {
     this.configureSolo();
     this.playing = true;
     if (channel == undefined) {
-      for (const ch of this.channels) ch.play();
+      for (const ch of this.channels) ch.play(undefined, fadeInMs);
     } else {
-      this.channels[channel].play();
+      this.channels[channel].play(undefined, fadeInMs);
     }
   }
 
@@ -138,6 +142,7 @@ export class Mixer {
     const playingTemp = this.playing;
     this.stop(undefined, true);
     this.currentSoundscape = newSoundscape;
+    await Storage.setLastSoundscape(newSoundscape);
 
     let soundscapes = await Storage.getSoundscapes();
     let settings = soundscapes[this.currentSoundscape];
@@ -178,6 +183,7 @@ export class Mixer {
     this.ambientMixer.configure(settings);
 
     this.renderUI();
+    if (this.onProfileLoaded) this.onProfileLoaded();
 
     if (playingTemp || forceStart) {
       setTimeout(() => this.start(), 1000);
@@ -328,12 +334,24 @@ export class Mixer {
 
   // ─── Solo ─────────────────────────────────────────────────────────────────────
 
-  async toggleSolo(i) {
+  /** Like configureSolo() but ramps gain nodes over fadeMs ms instead of instant jumps. */
+  configureSoloFade(fadeMs) {
+    const soloOn = this.channels.some(ch => ch.getSolo());
+    for (const ch of this.channels) {
+      const target = (!soloOn || ch.getSolo())
+        ? (ch.settings.mute ? 0 : (ch.settings.volume ?? 1))
+        : 0;
+      ch.effects.gain.ramp(target, fadeMs / 1000);
+    }
+  }
+
+  async toggleSolo(i, fadeMs = 0) {
     const ch = this.channels[i];
     if (!ch) return;
     const solo = !ch.getSolo();
     ch.setSolo(solo);
-    this.configureSolo();
+    if (fadeMs > 0) this.configureSoloFade(fadeMs);
+    else            this.configureSolo();
     const soundscapes = await Storage.getSoundscapes();
     if (soundscapes[this.currentSoundscape]?.channels[i]?.settings) {
       soundscapes[this.currentSoundscape].channels[i].settings.solo = solo;
@@ -536,6 +554,39 @@ export class Mixer {
     this.channels[targetId].setData(chSettings);
     await Storage.setSoundscapes(soundscapes);
     this.renderUI();
+  }
+
+  /**
+   * Update file paths in the current soundscape's playlists without reloading.
+   * @param {Record<string, string>} remap  — { oldPath: newPath }
+   */
+  async applyFileRemap(remap) {
+    if (!Object.keys(remap).length) return;
+    const soundscapes = await Storage.getSoundscapes();
+    const ss = soundscapes[this.currentSoundscape];
+    if (!ss) return;
+
+    const remapItem = (item) => (item.path in remap) ? { ...item, path: remap[item.path] } : item;
+
+    for (let i = 0; i < this.mixerSize; i++) {
+      const pl = ss.channels[i]?.soundData?.playlist;
+      if (Array.isArray(pl)) ss.channels[i].soundData.playlist = pl.map(remapItem);
+    }
+    if (Array.isArray(ss.ambient)) {
+      for (let i = 0; i < ss.ambient.length; i++) {
+        const pl = ss.ambient[i]?.soundData?.playlist;
+        if (Array.isArray(pl)) ss.ambient[i].soundData.playlist = pl.map(remapItem);
+      }
+    }
+    if (Array.isArray(ss.soundboard)) {
+      for (let i = 0; i < ss.soundboard.length; i++) {
+        const pl = ss.soundboard[i]?.soundData?.playlist;
+        if (Array.isArray(pl)) ss.soundboard[i].soundData.playlist = pl.map(remapItem);
+      }
+    }
+
+    soundscapes[this.currentSoundscape] = ss;
+    await Storage.setSoundscapes(soundscapes);
   }
 
   newSoundscape() {
