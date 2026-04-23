@@ -5,6 +5,7 @@
  *   MissingFilesDialog     — modal with a table + folder-search + apply.
  */
 import { t } from './i18n.js';
+import { makeDraggable } from './dragPanel.js';
 
 function _basename(p) { return p.split(/[\\/]/).pop(); }
 
@@ -157,7 +158,7 @@ export class MissingFilesDialog {
     panel.style.left = `${Math.round((window.innerWidth  - panel.offsetWidth)  / 2)}px`;
     panel.style.top  = `${Math.round((window.innerHeight - panel.offsetHeight) / 2)}px`;
 
-    this._makeDraggable(panel);
+    makeDraggable(panel, { ignoreSelector: '.fx-close' });
 
     document.getElementById('mfClose')
       ?.addEventListener('click', () => this._close());
@@ -166,34 +167,6 @@ export class MissingFilesDialog {
       ?.addEventListener('click', () => this._searchFolder());
     document.getElementById('mfApply')
       ?.addEventListener('click', () => this._apply());
-  }
-
-  _makeDraggable(panel) {
-    const hdr = panel.querySelector('.fx-header');
-    if (!hdr) return;
-    hdr.style.cursor = 'move';
-
-    hdr.addEventListener('mousedown', (e) => {
-      // Ignore clicks on the close button
-      if (e.target.closest('.fx-close')) return;
-      e.preventDefault();
-
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const startL = panel.offsetLeft;
-      const startT = panel.offsetTop;
-
-      const onMove = (e2) => {
-        panel.style.left = `${startL + e2.clientX - startX}px`;
-        panel.style.top  = `${startT + e2.clientY - startY}px`;
-      };
-      const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup',   onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup',   onUp);
-    });
   }
 
   // ── Table ─────────────────────────────────────────────────────────────────

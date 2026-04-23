@@ -12,6 +12,7 @@ import { AMBIENT_SIZE }           from './ambientMixer.js';
 import { t }                      from './i18n.js';
 import { MissingFilesRegistry }  from './missingFilesRegistry.js';
 import { checkMissingFiles, MissingFilesDialog } from './missingFilesDialog.js';
+import { pathToUrl }              from './pathUtils.js';
 
 const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif']);
 
@@ -476,7 +477,7 @@ export class MixerUI {
         ss[this.mixer.currentSoundscape].channels[i] = chData;
         await Storage.setSoundscapes(ss);
 
-        const newUrls = (await Promise.all(newItems.map(item => window.api.fs.toUrl(item.path)))).filter(Boolean);
+        const newUrls = newItems.map(item => pathToUrl(item.path)).filter(Boolean);
         if (behavior === 'next') {
           ch.sourceArray = [
             ...ch.sourceArray.slice(0, insertIdx + 1),
@@ -554,7 +555,7 @@ export class MixerUI {
             ss[this.mixer.currentSoundscape].soundboard[i] = sbData;
             await Storage.setSoundscapes(ss);
 
-            const newUrls = (await Promise.all(newItems.map(item => window.api.fs.toUrl(item.path)))).filter(Boolean);
+            const newUrls = newItems.map(item => pathToUrl(item.path)).filter(Boolean);
             if (behavior === 'next') {
               ch.sourceArray = [
                 ...ch.sourceArray.slice(0, insertIdx + 1),
@@ -640,7 +641,7 @@ export class MixerUI {
           await Storage.setSoundscapes(ss);
 
           if (ch) {
-            const urls = (await Promise.all(newItems.map(item => window.api.fs.toUrl(item.path)))).filter(Boolean);
+            const urls = newItems.map(item => pathToUrl(item.path)).filter(Boolean);
             ch.sourceArray = urls;
             ch.settings.name = ambEntry.settings.name;
           }
@@ -658,7 +659,7 @@ export class MixerUI {
           await Storage.setSoundscapes(ss);
 
           if (ch) {
-            const newUrls = (await Promise.all(newItems.map(item => window.api.fs.toUrl(item.path)))).filter(Boolean);
+            const newUrls = newItems.map(item => pathToUrl(item.path)).filter(Boolean);
             if (behavior === 'next') {
               ch.sourceArray = [
                 ...ch.sourceArray.slice(0, insertIdx + 1),

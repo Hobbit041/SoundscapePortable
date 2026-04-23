@@ -15,6 +15,7 @@
  */
 
 import { Storage } from './storage.js';
+import { makeEmptyAmbient } from './templates.js';
 
 const HOLD_MS = 600;
 
@@ -301,9 +302,8 @@ export class ChannelDrag {
       ss.scenes[curSceneIdx].ambient = structuredClone(ss.ambient ?? []);
     }
 
-    const def = (i) => ({ channel: i, settings: { volume: 1, name: '' }, soundData: { playlist: [], shuffle: false } });
-    const dA = structuredClone(ss.ambient?.[a] ?? def(a));
-    const dB = structuredClone(ss.ambient?.[b] ?? def(b));
+    const dA = structuredClone(ss.ambient?.[a] ?? makeEmptyAmbient(a));
+    const dB = structuredClone(ss.ambient?.[b] ?? makeEmptyAmbient(b));
     dA.channel = b;
     dB.channel = a;
 
@@ -314,8 +314,8 @@ export class ChannelDrag {
     // Swap in every scene snapshot
     for (const scene of (ss.scenes ?? [])) {
       if (!scene.ambient) continue;
-      const sA = structuredClone(scene.ambient[a] ?? def(a));
-      const sB = structuredClone(scene.ambient[b] ?? def(b));
+      const sA = structuredClone(scene.ambient[a] ?? makeEmptyAmbient(a));
+      const sB = structuredClone(scene.ambient[b] ?? makeEmptyAmbient(b));
       sA.channel = b; sB.channel = a;
       scene.ambient[a] = sB;
       scene.ambient[b] = sA;

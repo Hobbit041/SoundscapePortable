@@ -10,6 +10,13 @@ import { Delay } from './Effects/delay.js';
 import { Gain }  from './Effects/gain.js';
 import { Pan }   from './Effects/pan.js';
 import { EQ }    from './Effects/eq.js';
+import { makeChannelSettings } from './templates.js';
+import { pathToUrl } from './pathUtils.js';
+
+const DEF_SOUNDDATA = Object.freeze({
+  soundSelect: 'filepicker_single',
+  playlistName: '', soundName: '', source: ''
+});
 
 export class Channel {
   master           = false;
@@ -24,39 +31,14 @@ export class Channel {
   firstLoop        = true;
   audioElement     = undefined;
   node             = undefined;
-  _pendingFadeInMs = 0;
-
-  static DEF_SETTINGS = {
-    channel: 0, name: '', volume: 1, pan: 0,
-    link: false, solo: false, mute: false,
-    repeat: { repeat: 'all', minDelay: 0, maxDelay: 0 },
-    randomize: false,
-    playbackRate: { rate: 1, preservePitch: 1, random: 0 },
-    timing: { startTime: 0, stopTime: 0, skipFirstTiming: false, fadeIn: 0, fadeOut: 0, skipFirstFade: false },
-    autoPlay: false,
-    effects: {
-      equalizer: {
-        highPass:  { enable: false, frequency: 50,   q: 1 },
-        peaking1:  { enable: false, frequency: 500,  q: 1, gain: 1 },
-        peaking2:  { enable: false, frequency: 1000, q: 1, gain: 1 },
-        lowPass:   { enable: false, frequency: 2000, q: 1 }
-      },
-      delay: { enable: false, delayTime: 0.25, volume: 0.5 }
-    }
-  };
-
-  static DEF_SOUNDDATA = {
-    soundSelect: 'filepicker_single',
-    playlistName: '', soundName: '', source: ''
-  };
 
   constructor(mixer, channelNr) {
     this.mixer     = mixer;
     this.context   = mixer.audioCtx;
     this.channelNr = channelNr;
 
-    this.settings  = structuredClone(Channel.DEF_SETTINGS);
-    this.soundData = structuredClone(Channel.DEF_SOUNDDATA);
+    this.settings  = makeChannelSettings(typeof channelNr === 'number' ? channelNr : 0);
+    this.soundData = { ...DEF_SOUNDDATA };
 
     if (channelNr === 'master') {
       this.master = true;
@@ -82,7 +64,7 @@ export class Channel {
   async setData(data) {
     this.stop(false);
     this.audioElement = undefined;
-    this.settings = data.settings ?? structuredClone(Channel.DEF_SETTINGS);
+    this.settings = data.settings ?? makeChannelSettings(typeof this.channelNr === 'number' ? this.channelNr : 0);
 
     this.setMute(this.settings.mute);
     this.setSolo(this.settings.solo);
@@ -134,8 +116,7 @@ export class Channel {
 
     // New playlist format
     if (Array.isArray(soundData.playlist)) {
-      const urls = await Promise.all(soundData.playlist.map(item => window.api.fs.toUrl(item.path)));
-      return urls.filter(Boolean);
+      return soundData.playlist.map(item => pathToUrl(item.path)).filter(Boolean);
     }
 
     // Legacy: single file
@@ -165,8 +146,7 @@ export class Channel {
       }
     }
 
-    const urls = await Promise.all(paths.map(p => window.api.fs.toUrl(p)));
-    const valid = urls.filter(Boolean);
+    const valid = paths.map(pathToUrl).filter(Boolean);
     return this.settings.randomize ? this._shuffle(valid) : valid;
   }
 
@@ -194,12 +174,6 @@ export class Channel {
   // ─── Playback ────────────────────────────────────────────────────────────────
 
   play(currentTime = undefined, fadeInMs = 0) {
-    // Consume a pending fade-in queued by the prev/next handlers
-    if (fadeInMs <= 0 && this._pendingFadeInMs > 0) {
-      fadeInMs = this._pendingFadeInMs;
-      this._pendingFadeInMs = 0;
-    }
-
     if (!this.loaded || (this.playing && !this.paused && this.channelNr < 100)) return;
 
     if (!this.audioElement) {
@@ -313,7 +287,7 @@ export class Channel {
     this.soundData.source = source;
     this.source = source;
 
-    const url = source.startsWith('file://') ? source : await window.api.fs.toUrl(source);
+    const url = source.startsWith('file://') ? source : pathToUrl(source);
 
     this.audioElement = document.createElement('audio');
     this.audioElement.crossOrigin = 'anonymous';
@@ -504,7 +478,7 @@ export class Channel {
     this.source           = newSource;
     this.soundData.source = newSource;
 
-    const url = newSource.startsWith('file://') ? newSource : await window.api.fs.toUrl(newSource);
+    const url = newSource.startsWith('file://') ? newSource : pathToUrl(newSource);
 
     const newEl = document.createElement('audio');
     newEl.crossOrigin = 'anonymous';
