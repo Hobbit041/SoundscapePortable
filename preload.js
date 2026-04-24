@@ -64,6 +64,9 @@ contextBridge.exposeInMainWorld('api', {
   // ─── Translations ─────────────────────────────────────────────────────────
   getI18n: () => ipcRenderer.invoke('get-i18n'),
 
+  // ─── App info ─────────────────────────────────────────────────────────────
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+
   // ─── Web Remote Control ───────────────────────────────────────────────────
   web: {
     serverStart:    ()      => ipcRenderer.invoke('web-server-start'),

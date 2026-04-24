@@ -20,7 +20,7 @@
     "prevTrack": "Предыдущий трек",
     "nextTrack": "Следующий трек",
     "masterLabel": "Мастер",
-    "masterSubLabel": "Музыка и амбиенты"
+    "masterSubLabel": "Музыка"
   },
 
   "ambient": {
@@ -203,12 +203,12 @@
   },
 
   "nativeDialogs": {
-    "exportSoundscapeTitle": "Экспортировать Саундскейп",
-    "importSoundscapeTitle": "Импортировать Саундскейп",
+    "exportSoundscapeTitle": "Экспортировать Dungeonscape",
+    "importSoundscapeTitle": "Импортировать Dungeonscape",
     "exportMidiTitle": "Экспорт MIDI-маппинга",
     "importMidiTitle": "Импорт MIDI-маппинга",
-    "soundscapeDataFilter": "Данные Soundscape",
-    "profilesDataFilter": "Профили Soundscape",
+    "soundscapeDataFilter": "Данные Dungeonscape",
+    "profilesDataFilter": "Профили Dungeonscape",
     "exportProfilesTitle": "Экспортировать все профили",
     "importProfilesTitle": "Импортировать профили",
     "midiMappingFilter": "MIDI Mapping",

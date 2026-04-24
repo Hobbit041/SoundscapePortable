@@ -1017,6 +1017,11 @@ export class MixerUI {
           </div>
         </div>
 
+        <div class="settings-copyright">
+          <span id="settingsVersion"></span>
+          <span>© Максим &lsquo;Роланд&rsquo; Тренин</span>
+        </div>
+
       </div>
     `;
     // Overlay
@@ -1025,6 +1030,12 @@ export class MixerUI {
     overlay.className = 'settings-overlay';
     document.body.appendChild(overlay);
     document.body.appendChild(panel);
+
+    // Fill version asynchronously
+    window.api.getAppVersion().then(v => {
+      const el = document.getElementById('settingsVersion');
+      if (el) el.textContent = `v${v}`;
+    }).catch(() => {});
 
     // Center on screen
     panel.style.left = `${Math.round((window.innerWidth  - panel.offsetWidth)  / 2)}px`;

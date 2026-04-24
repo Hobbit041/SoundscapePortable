@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Soundscapes</title>
+  <title>Dungeonscape</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -14,7 +14,7 @@
   <!-- ═══ HEADER ═══════════════════════════════════════════════════════════ -->
   <header id="header">
     <div class="header-left">
-      <span class="app-logo"><i class="fas fa-music"></i> Soundscapes</span>
+      <span class="app-logo"><i class="fas fa-music"></i> Dungeonscape</span>
       <span id="midiStatus" class="midi-status" data-i18n="header.midiStatusScanning"></span>
     </div>
     <div class="header-center">
@@ -259,7 +259,7 @@
           <div class="ch-vol-number-wrap">
             <input class="ch-vol-number" id="volumeNumber-master" type="number" min="0" max="125" value="100">
           </div>
-          <div class="ch-label" style="font-size:9px; letter-spacing:1px" data-i18n="mixer.masterSubLabel"></div>
+          <div class="ch-label" style="font-size:9px; letter-spacing:1px; text-align:center" data-i18n="mixer.masterSubLabel"></div>
           <button class="btn-play btn-play-master" id="playMix"><i class="fas fa-play"></i></button>
         </div>
 
@@ -354,7 +354,7 @@
           <div class="amb-fader-wrap">
             <input class="amb-fader" id="ambSlider-master" type="range" min="0" max="125" step="1" value="100" orient="vertical">
           </div>
-          <div class="ch-label" style="font-size:9px; letter-spacing:1px" data-i18n="ambient.masterSubLabel"></div>
+          <div class="ch-label" style="font-size:9px; letter-spacing:1px; text-align:center" data-i18n="ambient.masterSubLabel"></div>
         </div>
 
       </div><!-- /ambient-strip-row -->

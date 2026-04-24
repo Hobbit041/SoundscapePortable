@@ -29,8 +29,11 @@ export class Channel {
   fadeStarted      = false;
   source           = null;
   firstLoop        = true;
-  audioElement     = undefined;
-  node             = undefined;
+  audioElement         = undefined;
+  node                 = undefined;
+  _crossfading         = false;
+  _crossfadeAbortToken = null;
+  _crossfadeOrphans    = [];
 
   constructor(mixer, channelNr) {
     this.mixer     = mixer;
@@ -436,8 +439,9 @@ export class Channel {
   }
 
   /** Linearly fade an audio element's volume from `from` to `to` over `ms` ms. Returns a Promise.
-   *  Uses `this.audioElement` when `el` is omitted. */
-  _fadeAudioElement(from, to, ms, el = null) {
+   *  Uses `this.audioElement` when `el` is omitted.
+   *  Pass an `abortToken` object `{ cancelled: false }` to allow early cancellation. */
+  _fadeAudioElement(from, to, ms, el = null, abortToken = null) {
     const target = el ?? this.audioElement;
     return new Promise(resolve => {
       if (!target || ms <= 0) {
@@ -451,6 +455,11 @@ export class Channel {
       let counter = 0;
       target.volume = Math.max(0, Math.min(1, from));
       const interval = setInterval(() => {
+        if (abortToken?.cancelled) {
+          clearInterval(interval);
+          resolve();
+          return;
+        }
         volume += stepSize;
         counter++;
         target.volume = Math.max(0, Math.min(1, volume));
@@ -465,11 +474,39 @@ export class Channel {
 
   /**
    * Crossfade to a track by index: fade out the current element while fading in the new one
-   * simultaneously. Does nothing if not currently playing.
+   * simultaneously.
+   *
+   * If called while a crossfade is already in progress, the running fades are immediately
+   * aborted, all intermediate audio elements are force-stopped, and the new track starts
+   * without any fade-in.
    */
   async _crossfadeTo(newIdx, fadeMs) {
     const newSource = this.sourceArray[newIdx];
     if (!newSource) return;
+
+    // ── Interrupt path: a crossfade is already running ──────────────────────────
+    if (this._crossfading) {
+      // Cancel the running fade intervals immediately
+      if (this._crossfadeAbortToken) this._crossfadeAbortToken.cancelled = true;
+
+      // Force-stop all elements that were part of the in-progress crossfade
+      for (const { el, node } of this._crossfadeOrphans) {
+        try { el.pause(); }       catch {}
+        try { node?.disconnect(); } catch {}
+      }
+      this._crossfadeOrphans = [];
+      this._crossfading      = false;
+
+      // Start the new track immediately, no fade
+      this.currentlyPlaying = newIdx;
+      await this.setSource(newSource, false, true);
+      return;
+    }
+
+    // ── Normal crossfade path ────────────────────────────────────────────────────
+    this._crossfading = true;
+    const abortToken  = { cancelled: false };
+    this._crossfadeAbortToken = abortToken;
 
     const outgoingEl   = this.audioElement;
     const outgoingNode = this.node;
@@ -485,36 +522,40 @@ export class Channel {
     newEl.src    = url;
     newEl.volume = 0;
 
-    // Apply playback rate
     if (this.settings.playbackRate) {
       const pbr = this.settings.playbackRate;
       newEl.playbackRate   = Math.max(0.25, Math.min(4, pbr.rate ?? 1));
       newEl.preservesPitch = !!pbr.preservePitch;
     }
 
-    // Apply start time
     const timing = this.settings.timing ?? {};
     newEl.currentTime = timing.startTime ?? 0;
 
-    // Connect new node directly to the shared gain chain (keeps old node alive)
     const newNode = this.context.createMediaElementSource(newEl);
     newNode.connect(this.effects.gain.node);
 
+    // Track both elements so an interrupt can clean them up
+    this._crossfadeOrphans = [
+      { el: outgoingEl, node: outgoingNode },
+      { el: newEl,      node: newNode      },
+    ];
+
     if (this.context.state === 'running') newEl.play().catch(() => {});
 
-    // Run both fades in parallel
     await Promise.all([
       outgoingEl
-        ? this._fadeAudioElement(outgoingEl.volume, 0, fadeMs, outgoingEl)
+        ? this._fadeAudioElement(outgoingEl.volume, 0, fadeMs, outgoingEl, abortToken)
         : Promise.resolve(),
-      this._fadeAudioElement(0, 1, fadeMs, newEl),
+      this._fadeAudioElement(0, 1, fadeMs, newEl, abortToken),
     ]);
 
-    // Tear down outgoing element (it's paused so timeupdate won't fire on it anymore)
+    // If the crossfade was interrupted mid-fade, bail out — the interrupt handler
+    // already cleaned up orphans and started the next track.
+    if (abortToken.cancelled) return;
+
     if (outgoingEl) outgoingEl.pause();
     try { outgoingNode?.disconnect(); } catch {}
 
-    // Update references
     this.audioElement = newEl;
     this.node         = newNode;
     this.loaded       = true;
@@ -522,6 +563,10 @@ export class Channel {
 
     newEl.addEventListener('loadeddata', () => { this.duration = newEl.duration; });
     newEl.addEventListener('timeupdate', () => this._onTimeUpdate());
+
+    this._crossfading         = false;
+    this._crossfadeAbortToken = null;
+    this._crossfadeOrphans    = [];
   }
 
   /** Fade out audio then stop. Resolves after stop() is called. */

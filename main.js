@@ -52,12 +52,12 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1042,
-    height: 600,
+    width: 1120,
+    height: 690,
     minWidth: 1000,
     minHeight: 530,
     backgroundColor: '#1a1a1e',
-    title: 'Soundscapes',
+    title: 'Dungeonscape',
     frame: false,
     icon: path.join(__dirname, 'assets', 'icon.ico'),
     webPreferences: {
@@ -268,6 +268,10 @@ ipcMain.handle('open-log-folder', () => shell.showItemInFolder(LOG_PATH));
 // ─── i18n IPC ─────────────────────────────────────────────────────────────────
 
 ipcMain.handle('get-i18n', () => _translations);
+
+// ─── App version ─────────────────────────────────────────────────────────────
+
+ipcMain.handle('get-app-version', () => app.getVersion());
 
 // ─── Web Remote Server ───────────────────────────────────────────────────────
 

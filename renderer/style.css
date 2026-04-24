@@ -854,7 +854,7 @@ input[type="range"].amb-fader {
   width: 18px;
   height: 100%;
   min-height: 50px;
-  max-height: 85px;
+  max-height: 120px;
   cursor: pointer;
   accent-color: var(--fader-thumb);
 }
@@ -1128,6 +1128,18 @@ input[type="range"].amb-fader {
 }
 
 .settings-panel { width: 500px; }
+
+.settings-copyright {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  font-size: 10px;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  opacity: 0.6;
+  user-select: none;
+}
 
 .settings-drop-grid {
   display: grid;
