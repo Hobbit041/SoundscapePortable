@@ -4,6 +4,7 @@
  */
 import { Channel  } from './channel.js';
 import { Storage  } from './storage.js';
+import { makeEmptySoundboardButton } from './templates.js';
 
 export class Soundboard {
   soundboardSize = 25;
@@ -193,17 +194,6 @@ export class Soundboard {
   }
 
   newChannel(channelNr) {
-    return {
-      channel: 100 + parseInt(channelNr),
-      soundData: { soundSelect: 'filepicker_single', source: '', playlistName: '', soundName: '' },
-      playbackRate: { rate: 1, preservePitch: 1, random: 0 },
-      name: '',
-      volume: 1,
-      randomizeVolume: 0,
-      repeat: { repeat: 'none', minDelay: 0, maxDelay: 0 },
-      randomize: false,
-      interrupt: true,
-      imageSrc: ''
-    };
+    return makeEmptySoundboardButton(parseInt(channelNr));
   }
 }

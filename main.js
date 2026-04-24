@@ -269,14 +269,6 @@ ipcMain.handle('open-log-folder', () => shell.showItemInFolder(LOG_PATH));
 
 ipcMain.handle('get-i18n', () => _translations);
 
-// Convert a local file path to a file:// URL for the audio element
-ipcMain.handle('path-to-url', (_, filePath) => {
-  if (!filePath) return '';
-  // Already a URL
-  if (filePath.startsWith('http') || filePath.startsWith('file://')) return filePath;
-  return 'file:///' + filePath.replace(/\\/g, '/').replace(/^\//, '');
-});
-
 // ─── Web Remote Server ───────────────────────────────────────────────────────
 
 const WEB_PORT = 3000;

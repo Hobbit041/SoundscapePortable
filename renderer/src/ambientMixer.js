@@ -13,6 +13,9 @@
  *     → AudioContext.destination
  */
 
+import { makeEmptyAmbient } from './templates.js';
+import { pathToUrl } from './pathUtils.js';
+
 export const AMBIENT_SIZE = 8;
 
 export class AmbientChannel {
@@ -43,11 +46,8 @@ export class AmbientChannel {
 
     const playlist = data.soundData?.playlist ?? [];
     if (playlist.length) {
-      Promise.all(playlist.map(item => window.api.fs.toUrl(item.path)))
-        .then(urls => {
-          this.sourceArray = urls.filter(Boolean);
-          if (this.currentlyPlaying >= this.sourceArray.length) this.currentlyPlaying = 0;
-        });
+      this.sourceArray = playlist.map(item => pathToUrl(item.path)).filter(Boolean);
+      if (this.currentlyPlaying >= this.sourceArray.length) this.currentlyPlaying = 0;
     } else {
       this.sourceArray = [];
     }
@@ -144,9 +144,7 @@ export class AmbientMixer {
     const ambient = soundscapeData.ambient ?? [];
     for (let i = 0; i < this.channelCount; i++) {
       this.channels[i].stop();
-      this.channels[i].setData(
-        ambient[i] ?? { settings: { volume: 1, name: '' }, soundData: { playlist: [] } }
-      );
+      this.channels[i].setData(ambient[i] ?? makeEmptyAmbient(i));
     }
     this._masterVol = soundscapeData.ambientMaster?.volume ?? 1;
     this.masterGain.gain.value = this._masterVol;

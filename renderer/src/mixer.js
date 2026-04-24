@@ -7,6 +7,12 @@ import { Channel      } from './channel.js';
 import { Soundboard   } from './soundboard.js';
 import { AmbientMixer, AMBIENT_SIZE } from './ambientMixer.js';
 import { Storage      } from './storage.js';
+import {
+  MIXER_SIZE, SOUNDBOARD_SIZE,
+  makeEmptyChannel, makeEmptyChannelArray,
+  makeEmptyAmbient, makeEmptyAmbientArray,
+  makeEmptySoundboardButton, makeEmptySoundboardArray
+} from './templates.js';
 
 export class Mixer {
   mixerSize  = 8;
@@ -121,7 +127,32 @@ export class Mixer {
   }
 
   async setLinkVolumes(volume, channel) {
-    const diff = volume / this.linkProportion[channel];
+    // If the dragged channel has no valid proportion baseline (volume was 0
+    // when links were last configured, or it was excluded from the link set),
+    // dividing would yield Infinity/NaN. Instead, set all linked channels to
+    // the new volume and rebuild proportions so future drags work from here.
+    const base = this.linkProportion[channel];
+    if (!(base > 0)) {
+      for (const ch of this.channels) {
+        if (ch.channelNr === channel || this.linkArray[ch.channelNr]) {
+          ch.setVolume(volume);
+        }
+      }
+      this.configureLink();
+      const soundscapes = await Storage.getSoundscapes();
+      const ss = soundscapes[this.currentSoundscape];
+      if (ss) {
+        for (let i = 0; i < this.mixerSize; i++) {
+          if (i === channel || this.linkArray[i]) {
+            if (ss.channels[i]?.settings) ss.channels[i].settings.volume = volume;
+          }
+        }
+        await Storage.setSoundscapes(soundscapes);
+      }
+      return;
+    }
+
+    const diff = volume / base;
     for (const ch of this.channels) {
       if (!this.linkArray[ch.channelNr]) continue;
       ch.setVolume(this.linkProportion[ch.channelNr] * diff);
@@ -287,15 +318,10 @@ export class Mixer {
     if (!ss.scenes) ss.scenes = [];
     if (ss.scenes.length >= 16) return;
 
-    const emptyAmbient = Array.from({ length: AMBIENT_SIZE }, (_, i) => ({
-      channel: i,
-      settings: { volume: 1, name: '' },
-      soundData: { playlist: [], shuffle: false }
-    }));
     ss.scenes.push({
       name:     `Scene ${ss.scenes.length + 1}`,
       channels: structuredClone(ss.channels),
-      ambient:  emptyAmbient
+      ambient:  makeEmptyAmbientArray(AMBIENT_SIZE)
     });
     soundscapes[this.currentSoundscape] = ss;
     await Storage.setSoundscapes(soundscapes);
@@ -388,18 +414,9 @@ export class Mixer {
     if (!ss.sbScenes) ss.sbScenes = [];
     if (ss.sbScenes.length >= 16) return;
 
-    const emptySoundboard = Array.from({ length: 25 }, (_, i) => ({
-      channel: 100 + i,
-      soundData: { soundSelect: 'filepicker_single', source: '', playlistName: '', soundName: '' },
-      playbackRate: { rate: 1, preservePitch: 1, random: 0 },
-      name: '', volume: 1, randomizeVolume: 0,
-      repeat: { repeat: 'none', minDelay: 0, maxDelay: 0 },
-      randomize: false, interrupt: true, imageSrc: ''
-    }));
-
     ss.sbScenes.push({
       name:       `SB ${ss.sbScenes.length + 1}`,
-      soundboard: emptySoundboard
+      soundboard: makeEmptySoundboardArray()
     });
     soundscapes[this.currentSoundscape] = ss;
     await Storage.setSoundscapes(soundscapes);
@@ -456,13 +473,7 @@ export class Mixer {
     const soundscapes = await Storage.getSoundscapes();
     const ss = soundscapes[this.currentSoundscape];
     if (!ss) return;
-    const def = structuredClone(Channel.DEF_SETTINGS);
-    def.channel = channelNr;
-    ss.channels[channelNr] = {
-      channel:   channelNr,
-      soundData: { soundSelect: 'filepicker_single', source: '', playlistName: '', soundName: '' },
-      settings:  def
-    };
+    ss.channels[channelNr] = makeEmptyChannel(channelNr);
     soundscapes[this.currentSoundscape] = ss;
     await Storage.setSoundscapes(soundscapes);
     await this.channels[channelNr].setData(ss.channels[channelNr]);
@@ -476,11 +487,7 @@ export class Mixer {
     const ss = soundscapes[this.currentSoundscape];
     if (!ss) return;
     if (!ss.ambient) ss.ambient = [];
-    ss.ambient[i] = {
-      channel: i,
-      settings: { volume: 1, name: '' },
-      soundData: { playlist: [], shuffle: false }
-    };
+    ss.ambient[i] = makeEmptyAmbient(i);
     soundscapes[this.currentSoundscape] = ss;
     await Storage.setSoundscapes(soundscapes);
     if (ch) {
@@ -496,14 +503,7 @@ export class Mixer {
     const soundscapes = await Storage.getSoundscapes();
     const ss = soundscapes[this.currentSoundscape];
     if (!ss) return;
-    ss.soundboard[btnNr] = {
-      channel: 100 + btnNr,
-      soundData: { soundSelect: 'filepicker_single', source: '', playlistName: '', soundName: '' },
-      playbackRate: { rate: 1, preservePitch: 1, random: 0 },
-      name: '', volume: 1, randomizeVolume: 0,
-      repeat: { repeat: 'none', minDelay: 0, maxDelay: 0 },
-      randomize: false, interrupt: true, imageSrc: ''
-    };
+    ss.soundboard[btnNr] = makeEmptySoundboardButton(btnNr);
     soundscapes[this.currentSoundscape] = ss;
     await Storage.setSoundscapes(soundscapes);
     this.soundboard.configure(ss);
@@ -590,45 +590,9 @@ export class Mixer {
   }
 
   newSoundscape() {
-    const channels = [];
-    for (let i = 0; i < 8; i++) {
-      channels[i] = {
-        channel: i,
-        soundData: { soundSelect: 'filepicker_single', source: '', playlistName: '', soundName: '' },
-        settings: {
-          channel: i, name: '', volume: 1, pan: 0,
-          link: false, solo: false, mute: false,
-          repeat: { repeat: 'all', minDelay: 0, maxDelay: 0 }, randomize: false,
-          playbackRate: { rate: 1, preservePitch: 1, random: 0 },
-          timing: { startTime: 0, stopTime: 0, skipFirstTiming: false, fadeIn: 0, fadeOut: 0, skipFirstFade: false },
-          effects: {
-            equalizer: {
-              highPass:  { enable: false, frequency: 50,   q: 1 },
-              peaking1:  { enable: false, frequency: 500,  q: 1, gain: 1 },
-              peaking2:  { enable: false, frequency: 1000, q: 1, gain: 1 },
-              lowPass:   { enable: false, frequency: 2000, q: 1 }
-            },
-            delay: { enable: false, delayTime: 0.25, volume: 0.5 }
-          }
-        }
-      };
-    }
-    const soundboard = [];
-    for (let i = 0; i < 25; i++) {
-      soundboard.push({
-        channel: 100 + i,
-        soundData: { soundSelect: 'filepicker_single', source: '', playlistName: '', soundName: '' },
-        playbackRate: { rate: 1, preservePitch: 1, random: 0 },
-        name: '', volume: 1, randomizeVolume: 0,
-        repeat: { repeat: 'none', minDelay: 0, maxDelay: 0 },
-        randomize: false, interrupt: true, imageSrc: ''
-      });
-    }
-    const ambient = Array.from({ length: AMBIENT_SIZE }, (_, i) => ({
-      channel: i,
-      settings: { volume: 1, name: '' },
-      soundData: { playlist: [], shuffle: false }
-    }));
+    const channels   = makeEmptyChannelArray(MIXER_SIZE);
+    const soundboard = makeEmptySoundboardArray(SOUNDBOARD_SIZE);
+    const ambient    = makeEmptyAmbientArray(AMBIENT_SIZE);
 
     return {
       name: '',

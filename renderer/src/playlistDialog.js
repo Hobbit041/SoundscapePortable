@@ -14,6 +14,8 @@
  */
 import { t }                      from './i18n.js';
 import { MissingFilesRegistry } from './missingFilesRegistry.js';
+import { pathToUrl }              from './pathUtils.js';
+import { makeDraggable }         from './dragPanel.js';
 
 const AUDIO_EXT = new Set(['mp3', 'ogg', 'wav', 'flac', 'm4a', 'opus', 'webm']);
 
@@ -435,8 +437,7 @@ export class PlaylistDialog {
     }));
     const ch = this.getChannel();
     if (ch) {
-      const urls = await Promise.all(this.playlist.map(item => window.api.fs.toUrl(item.path)));
-      ch.sourceArray = urls.filter(Boolean);
+      ch.sourceArray = this.playlist.map(item => pathToUrl(item.path)).filter(Boolean);
       if (trackedPath != null) {
         // Keep currentlyPlaying pointing at the same track after reorder
         const newIdx = this.playlist.findIndex(item => item.path === trackedPath);
@@ -453,25 +454,5 @@ export class PlaylistDialog {
 
   _q(id)  { return document.getElementById(id); }
 
-  _makeDraggable(el) {
-    let ox = 0, oy = 0, mx = 0, my = 0;
-    const hdr = el.querySelector('.fx-header');
-    if (!hdr) return;
-    hdr.style.cursor = 'move';
-    hdr.addEventListener('mousedown', e => {
-      e.preventDefault();
-      ox = el.offsetLeft; oy = el.offsetTop;
-      mx = e.clientX;     my = e.clientY;
-      const onMove = e2 => {
-        el.style.left = `${ox + e2.clientX - mx}px`;
-        el.style.top  = `${oy + e2.clientY - my}px`;
-      };
-      const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup',   onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup',   onUp);
-    });
-  }
+  _makeDraggable(el) { makeDraggable(el); }
 }

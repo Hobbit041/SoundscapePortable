@@ -21,9 +21,6 @@ contextBridge.exposeInMainWorld('api', {
     /** Open native file/folder picker. Returns array of paths or null */
     openDialog: (options) => ipcRenderer.invoke('open-file-dialog', options),
 
-    /** Convert absolute path to file:// URL usable by <audio> */
-    toUrl: (filePath) => ipcRenderer.invoke('path-to-url', filePath),
-
     /** Batch existence check: returns { [path]: boolean } */
     checkMany: (paths) => ipcRenderer.invoke('check-files-exist', paths),
 

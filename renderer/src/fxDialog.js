@@ -3,8 +3,9 @@
  * Replaces FXConfig FormApplication from Foundry.
  * Creates a floating panel with EQ + Delay controls.
  */
-import { Storage } from './storage.js';
-import { t }       from './i18n.js';
+import { Storage }      from './storage.js';
+import { t }            from './i18n.js';
+import { makeDraggable } from './dragPanel.js';
 
 export class FXDialog {
   constructor(channel, mixer) {
@@ -185,25 +186,5 @@ export class FXDialog {
     await Storage.setSoundscapes(soundscapes);
   }
 
-  _makeDraggable(el) {
-    let ox = 0, oy = 0, mx = 0, my = 0;
-    const header = el.querySelector('.fx-header');
-    if (!header) return;
-    header.style.cursor = 'move';
-    header.addEventListener('mousedown', e => {
-      e.preventDefault();
-      ox = el.offsetLeft; oy = el.offsetTop;
-      mx = e.clientX;     my = e.clientY;
-      const onMove = e2 => {
-        el.style.left = `${ox + e2.clientX - mx}px`;
-        el.style.top  = `${oy + e2.clientY - my}px`;
-      };
-      const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-      };
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    });
-  }
+  _makeDraggable(el) { makeDraggable(el); }
 }
