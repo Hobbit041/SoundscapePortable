@@ -75,6 +75,7 @@
       "artifactName": "Dungeonscape-portable.exe"
     },
     "mac": {
+      "icon": "assets/icon.png",
       "target": [
         {
           "target": "dmg",

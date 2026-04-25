@@ -14,7 +14,9 @@
       "Bash(node --input-type=module -e ':*)",
       "Bash(node --check renderer/src/webBridge.js)",
       "Bash(node --check renderer/app.js)",
-      "Bash(xargs wc:*)"
+      "Bash(xargs wc:*)",
+      "Bash(python3 -c ':*)",
+      "Bash(python -c ':*)"
     ]
   }
 }
