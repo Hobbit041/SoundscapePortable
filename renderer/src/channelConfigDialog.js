@@ -147,6 +147,9 @@ export class ChannelConfigDialog {
     document.getElementById(`chCfgReset-${i}`)?.addEventListener('click', async () => {
       if (!confirm(t('channelConfig.clearConfirm'))) return;
       await this.mixer.clearChannel(i);
+      document.dispatchEvent(new CustomEvent('playlist-changed', {
+        detail: { panelId: `ch-${i}`, playlist: [] }
+      }));
       document.getElementById(`chCfgPanel-${i}`)?.remove();
     });
 

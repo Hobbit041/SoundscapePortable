@@ -314,6 +314,9 @@ export class PlaylistDialog {
       this._q(`plClear-${id}`)?.addEventListener('click', async () => {
         if (!confirm(t('playlist.clearConfirm'))) return;
         await this._onClear();
+        document.dispatchEvent(new CustomEvent('playlist-changed', {
+          detail: { panelId: this.panelId, playlist: [] }
+        }));
         document.getElementById(`plPanel-${id}`)?.remove();
       });
     }

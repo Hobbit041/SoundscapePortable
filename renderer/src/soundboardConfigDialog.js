@@ -32,7 +32,7 @@ export class SoundboardConfigDialog {
     const rpt = (data.repeat && typeof data.repeat === 'object')
       ? data.repeat
       : { repeat: data.repeat ?? 'none', minDelay: 0, maxDelay: 0 };
-    const interrupt = data.interrupt !== false;
+    const interrupt = data.interrupt === true;
     const plCount   = Array.isArray(sd.playlist) ? sd.playlist.length : (sd.source ? 1 : 0);
     const imgName   = data.imageSrc ? data.imageSrc.split(/[\\/]/).pop() : '—';
     const vol  = Math.round((data.volume ?? 1) * 100);
@@ -150,6 +150,9 @@ export class SoundboardConfigDialog {
     document.getElementById(`sbCfgReset-${i}`)?.addEventListener('click', async () => {
       if (!confirm(t('soundboardConfig.clearConfirm'))) return;
       await this.mixer.clearSoundboardButton(i);
+      document.dispatchEvent(new CustomEvent('playlist-changed', {
+        detail: { panelId: `sb-${i}`, playlist: [] }
+      }));
       document.getElementById(`sbCfgPanel-${i}`)?.remove();
     });
 

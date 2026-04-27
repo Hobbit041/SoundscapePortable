@@ -16,6 +16,14 @@ import { pathToUrl }              from './pathUtils.js';
 
 const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif']);
 
+/** Extract a display name from a playlist item label.
+ *  Folder items have labels like "/FolderName/file.mp3" — use the folder name. */
+function _nameFromLabel(label) {
+  if (!label) return '';
+  if (label.startsWith('/')) return label.split('/')[1] ?? '';
+  return label.split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+}
+
 const FADE_MS      = 3000; // crossfade between tracks (prev/next)
 const FADE_STOP_MS = 300;  // play/stop, mute, solo
 
@@ -157,10 +165,9 @@ export class MixerUI {
       const btn = this._el(`sbButton-${i}`);
       if (!btn) continue;
       const d = sbData[i] ?? {};
-      const rpt = d.repeat?.repeat ?? d.repeat ?? 'none';
-      const isLoop = rpt === 'single' || rpt === 'all';
-      btn.style.borderColor = isLoop ? 'yellow' : '';
-      btn.style.boxShadow   = isLoop ? '0 0 8px yellow' : '';
+      const isPlaying = this.mixer.soundboard?.channels[i]?.playing ?? false;
+      btn.style.borderColor = isPlaying ? 'yellow' : '';
+      btn.style.boxShadow   = isPlaying ? '0 0 8px yellow' : '';
 
       const label = this._el(`sbLabel-${i}`);
       if (label) label.textContent = d.name ?? '';
@@ -239,6 +246,14 @@ export class MixerUI {
     setTimeout(() => btn.classList.remove('sb-flash'), 200);
   }
 
+  _updateSbBorder(index) {
+    const btn = this._el(`sbButton-${index}`);
+    if (!btn) return;
+    const isPlaying = this.mixer.soundboard?.channels[index]?.playing ?? false;
+    btn.style.borderColor = isPlaying ? 'yellow' : '';
+    btn.style.boxShadow   = isPlaying ? '0 0 8px yellow' : '';
+  }
+
   updateMIDIStatus(devices) {
     const el = this._el('midiStatus');
     if (!el) return;
@@ -305,6 +320,7 @@ export class MixerUI {
     });
     this._on('sbStopAll', 'click', () => {
       this.mixer.soundboard.stopAll();
+      for (let j = 0; j < 25; j++) this._updateSbBorder(j);
     });
 
     // ── Import / Export ──
@@ -451,7 +467,7 @@ export class MixerUI {
         const behavior = (await Storage.getDropBehavior()).music ?? 'overwrite';
 
         if (behavior === 'overwrite') {
-          const name = (newItems[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+          const name = _nameFromLabel(newItems[0]?.label);
           await this.mixer.newData(i, { type: 'playlist', playlist: newItems, name });
           return;
         }
@@ -463,7 +479,7 @@ export class MixerUI {
 
         if (!existing.length) {
           // Nothing in the queue yet — treat as overwrite
-          const name = (newItems[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+          const name = _nameFromLabel(newItems[0]?.label);
           await this.mixer.newData(i, { type: 'playlist', playlist: newItems, name });
           return;
         }
@@ -502,6 +518,7 @@ export class MixerUI {
       if (e.target.classList.contains('sbConfig')) return;
       this.mixer.soundboard.playSound(i);
       this.flashSoundboardButton(i);
+      this._updateSbBorder(i);
     });
 
     // Right click = open config dialog
@@ -534,7 +551,7 @@ export class MixerUI {
         const behavior = (await Storage.getDropBehavior()).sb ?? 'overwrite';
 
         if (behavior === 'overwrite') {
-          const name = (newItems[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+          const name = _nameFromLabel(newItems[0]?.label);
           await this.mixer.soundboard.newData(i, { type: 'playlist', playlist: newItems, name });
         } else {
           const ss = await Storage.getSoundscapes();
@@ -543,7 +560,7 @@ export class MixerUI {
           const existing = Array.isArray(sbData.soundData?.playlist) ? sbData.soundData.playlist : [];
 
           if (!existing.length) {
-            const name = (newItems[0]?.label ?? '').split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
+            const name = _nameFromLabel(newItems[0]?.label);
             await this.mixer.soundboard.newData(i, { type: 'playlist', playlist: newItems, name });
           } else {
             const ch = this.mixer.soundboard.channels[i];
