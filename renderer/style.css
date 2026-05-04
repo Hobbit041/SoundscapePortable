@@ -5,23 +5,23 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:          #1a1a1e;
-  --surface:     #26262c;
-  --surface2:    #2f2f38;
-  --border:      #3a3a45;
-  --accent:      #e07b39;
-  --accent-dim:  #7a4020;
-  --mute-on:     #e03030;
-  --mute-off:    #7a1010;
-  --solo-on:     #e0e000;
-  --solo-off:    #6a6a00;
-  --link-on:     #1496ff;
-  --link-off:    #0820cc;
-  --text:        #d0d0d8;
-  --text-dim:    #888890;
-  --fader-thumb: #e07b39;
-  --radius:      6px;
-  --font:        'Segoe UI', system-ui, sans-serif;
+  --bg:              #1a1a1e;
+  --surface:         #26262c;
+  --surface2:        #2f2f38;
+  --border:          #3a3a45;
+  --accent:          #e07b39;
+  --accent-dim:      #7a4020;
+  --mute-on:         #e03030;
+  --mute-off:        #7a1010;
+  --solo-on:         #e0e000;
+  --solo-off:        #6a6a00;
+  --link-on:         #1496ff;
+  --link-off:        #0820cc;
+  --text:            #d0d0d8;
+  --text-dim:        #888890;
+  --fader-thumb:     #e07b39;
+  --radius:          6px;
+  --font:            'Segoe UI', system-ui, sans-serif;
 }
 
 html, body {
@@ -311,6 +311,23 @@ input[type="range"].ch-fader {
   padding: 3px 0;
   font-size: 12px;
   background: var(--surface2);
+}
+
+/* Fader dim (opacity) when channel is not playing — no track-color artefacts */
+.channel-strip:not(.master-strip) .ch-fader,
+.amb-strip:not(.amb-master-strip) .amb-fader {
+  opacity: 0.35;
+  transition: opacity 0.3s ease;
+}
+.channel-strip.is-playing .ch-fader,
+.amb-strip.is-playing .amb-fader {
+  opacity: 1;
+}
+
+/* Play button slightly brighter when channel is playing */
+.channel-strip.is-playing .btn-play-ch,
+.amb-strip.is-playing .btn-play-ch {
+  background: #3d3d48;
 }
 
 .ch-nav {
@@ -988,6 +1005,16 @@ input[type="range"].amb-fader {
 .sb-cell.ch-drag-target {
   outline: 2px solid #e0e000;
   box-shadow: 0 0 10px rgba(220, 220, 0, 0.45);
+}
+
+/* Scene button drag insertion indicator */
+.scene-btn.scene-drag-before,
+.sb-scene-btn.scene-drag-before {
+  box-shadow: -3px 0 0 0 #e0e000;
+}
+.scene-btn.scene-drag-after,
+.sb-scene-btn.scene-drag-after {
+  box-shadow: 3px 0 0 0 #e0e000;
 }
 
 /* ── SOUNDSCAPE LIST PANEL ───────────────────────────────────── */

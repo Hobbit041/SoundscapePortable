@@ -126,6 +126,7 @@ export class MixerUI {
       this._el(`playSound-${i}`).innerHTML = ch.playing
         ? '<i class="fas fa-stop"></i>'
         : '<i class="fas fa-play"></i>';
+      this._el(`box-${i}`)?.classList.toggle('is-playing', ch.playing);
     }
 
     // Scenes
@@ -148,9 +149,11 @@ export class MixerUI {
         nameEl.placeholder = t('ambient.channelNamePlaceholder', { n: i + 1 });
       }
       if (slEl)   slEl.value     = (amb.settings?.volume ?? 1) * 100;
-      if (playEl) playEl.innerHTML = this.mixer.ambientMixer?.channels[i]?.playing
+      const ambPlaying = this.mixer.ambientMixer?.channels[i]?.playing ?? false;
+      if (playEl) playEl.innerHTML = ambPlaying
         ? '<i class="fas fa-stop"></i>'
         : '<i class="fas fa-play"></i>';
+      this._el(`ambBox-${i}`)?.classList.toggle('is-playing', ambPlaying);
     }
 
     // Soundboard scenes
@@ -184,10 +187,12 @@ export class MixerUI {
       ? '<i class="fas fa-stop"></i>'
       : '<i class="fas fa-play"></i>';
     for (let i = 0; i < 8; i++) {
+      const chPlaying = this.mixer.channels[i].playing;
       const btn = this._el(`playSound-${i}`);
-      if (btn) btn.innerHTML = this.mixer.channels[i].playing
+      if (btn) btn.innerHTML = chPlaying
         ? '<i class="fas fa-stop"></i>'
         : '<i class="fas fa-play"></i>';
+      this._el(`box-${i}`)?.classList.toggle('is-playing', chPlaying);
     }
   }
 
@@ -286,6 +291,8 @@ export class MixerUI {
     this._on('playMix', 'click', async () => {
       if (this.mixer.playing) {
         const playing = this.mixer.channels.filter(ch => ch.playing);
+        // Remove is-playing immediately so visual fade runs in parallel with audio fade
+        for (const ch of playing) this._el(`box-${ch.channelNr}`)?.classList.remove('is-playing');
         if (playing.length) await Promise.all(playing.map(ch => ch.fadeOutAndStop(FADE_STOP_MS)));
         this.mixer.playing = false;
       } else {
@@ -408,6 +415,8 @@ export class MixerUI {
     this._on(`playSound-${i}`, 'click', async () => {
       const ch = this.mixer.channels[i];
       if (ch.playing) {
+        // Remove is-playing immediately so visual fade runs in parallel with audio fade
+        this._el(`box-${i}`)?.classList.remove('is-playing');
         await ch.fadeOutAndStop(FADE_STOP_MS);
         this.mixer.playing = this.mixer.channels.some(c => c.playing);
       } else {
@@ -448,6 +457,7 @@ export class MixerUI {
 
     // Channel name
     this._on(`channelName-${i}`, 'change', async (e) => {
+      e.target.title = e.target.value;
       await this._saveChannelSetting(i, 'name', e.target.value);
     });
 
@@ -455,7 +465,7 @@ export class MixerUI {
     const box = this._el(`box-${i}`);
     if (box) {
       box.addEventListener('dragover', e => { e.preventDefault(); box.classList.add('drag-over'); });
-      box.addEventListener('dragleave', () => box.classList.remove('drag-over'));
+      box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove('drag-over'); });
       box.addEventListener('drop', async (e) => {
         e.preventDefault();
         box.classList.remove('drag-over');
@@ -529,7 +539,7 @@ export class MixerUI {
 
     // Drag-and-drop
     btn.addEventListener('dragover', e => { e.preventDefault(); btn.classList.add('drag-over'); });
-    btn.addEventListener('dragleave', () => btn.classList.remove('drag-over'));
+    btn.addEventListener('dragleave', (e) => { if (!btn.contains(e.relatedTarget)) btn.classList.remove('drag-over'); });
     btn.addEventListener('drop', async (e) => {
       e.preventDefault();
       btn.classList.remove('drag-over');
@@ -608,6 +618,7 @@ export class MixerUI {
       if (btn) btn.innerHTML = ch.playing
         ? '<i class="fas fa-stop"></i>'
         : '<i class="fas fa-play"></i>';
+      this._el(`ambBox-${i}`)?.classList.toggle('is-playing', ch.playing);
     });
 
     // Config button → open playlist dialog
@@ -615,6 +626,7 @@ export class MixerUI {
 
     // Name input
     this._on(`ambName-${i}`, 'change', async (e) => {
+      e.target.title = e.target.value;
       await this._saveAmbientSetting(i, 'name', e.target.value);
       const ch = this.mixer.ambientMixer?.channels[i];
       if (ch) ch.settings.name = e.target.value;
@@ -629,7 +641,7 @@ export class MixerUI {
       });
 
       box.addEventListener('dragover',  e => { e.preventDefault(); box.classList.add('drag-over'); });
-      box.addEventListener('dragleave', () => box.classList.remove('drag-over'));
+      box.addEventListener('dragleave', (e) => { if (!box.contains(e.relatedTarget)) box.classList.remove('drag-over'); });
       box.addEventListener('drop', async (e) => {
         e.preventDefault();
         box.classList.remove('drag-over');
@@ -757,6 +769,8 @@ export class MixerUI {
         this._editScene(btn, idx, scene.name || t('scenes.defaultName', { n: idx + 1 }), scenes.length);
       });
 
+      this._bindSceneDrag(btn, idx, 'scene');
+
       row.insertBefore(btn, addBtn);
     });
 
@@ -845,6 +859,8 @@ export class MixerUI {
         this._editSbScene(btn, idx, scene.name || t('scenes.sbDefaultName', { n: idx + 1 }), sbScenes.length);
       });
 
+      this._bindSceneDrag(btn, idx, 'sbScene');
+
       row.insertBefore(btn, addBtn);
     });
 
@@ -893,6 +909,128 @@ export class MixerUI {
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter')  { input.blur(); }
       if (e.key === 'Escape') { input.value = currentName; trashClicked = true; input.blur(); }
+    });
+  }
+
+  // ─── Scene button hold-to-drag reordering ────────────────────────────────────
+
+  _bindSceneDrag(btn, idx, type) {
+    btn.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      let curX = e.clientX, curY = e.clientY;
+
+      const trackMouse = (ev) => { curX = ev.clientX; curY = ev.clientY; };
+      const cancel = () => {
+        clearTimeout(timer);
+        document.removeEventListener('mousemove', trackMouse);
+        document.removeEventListener('mouseup',   cancel);
+        btn.removeEventListener('mouseleave',     cancel);
+      };
+      document.addEventListener('mousemove', trackMouse);
+      document.addEventListener('mouseup',   cancel);
+      btn.addEventListener('mouseleave',     cancel);
+
+      const timer = setTimeout(() => {
+        document.removeEventListener('mousemove', trackMouse);
+        document.removeEventListener('mouseup',   cancel);
+        btn.removeEventListener('mouseleave',     cancel);
+
+        const rect    = btn.getBoundingClientRect();
+        const offsetX = curX - rect.left;
+        const offsetY = curY - rect.top;
+
+        // Build ghost clone
+        const ghost = btn.cloneNode(true);
+        ghost.removeAttribute('id');
+        ghost.querySelectorAll('[id]').forEach(c => c.removeAttribute('id'));
+        ghost.classList.add('ch-drag-ghost');
+        Object.assign(ghost.style, {
+          position:        'fixed',
+          left:            `${rect.left}px`,
+          top:             `${rect.top}px`,
+          width:           `${rect.width}px`,
+          height:          `${rect.height}px`,
+          zIndex:          '9999',
+          pointerEvents:   'none',
+          opacity:         '0.85',
+          transform:       'scale(1)',
+          transformOrigin: 'center center',
+          transition:      'transform 0.2s ease',
+          margin:          '0',
+        });
+        document.body.appendChild(ghost);
+        requestAnimationFrame(() => { ghost.style.transform = 'scale(0.9)'; });
+
+        btn.classList.add('ch-drag-source');
+
+        const suppressClick = (ev) => {
+          ev.stopPropagation();
+          ev.preventDefault();
+          btn.removeEventListener('click', suppressClick, true);
+        };
+        btn.addEventListener('click', suppressClick, true);
+
+        const selector = type === 'scene' ? '.scene-btn' : '.sb-scene-btn';
+        // { target, insertBefore } — current drop indicator state
+        let dragState = null;
+
+        const clearIndicator = () => {
+          if (dragState?.target) {
+            dragState.target.classList.remove('scene-drag-before', 'scene-drag-after');
+          }
+          dragState = null;
+        };
+
+        const onMove = (ev) => {
+          ghost.style.left = `${ev.clientX - offsetX}px`;
+          ghost.style.top  = `${ev.clientY - offsetY}px`;
+
+          const under  = document.elementFromPoint(ev.clientX, ev.clientY);
+          const target = under?.closest(selector) ?? null;
+          if (!target || target === btn) { clearIndicator(); return; }
+
+          const tRect       = target.getBoundingClientRect();
+          const isBefore    = ev.clientX < tRect.left + tRect.width / 2;
+          const toIdx       = parseInt(type === 'scene'
+            ? (target.dataset.sceneIdx   ?? '-1')
+            : (target.dataset.sbSceneIdx ?? '-1'));
+          const insertBefore = isBefore ? toIdx : toIdx + 1;
+
+          if (dragState?.target === target && dragState?.insertBefore === insertBefore) return;
+          clearIndicator();
+          target.classList.add(isBefore ? 'scene-drag-before' : 'scene-drag-after');
+          dragState = { target, insertBefore };
+        };
+
+        const onUp = async () => {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup',   onUp);
+          const state = dragState;
+          clearIndicator();
+
+          if (state) {
+            if (type === 'scene') await this.mixer.moveScene(idx, state.insertBefore);
+            else                  await this.mixer.moveSoundboardScene(idx, state.insertBefore);
+            ghost.remove();
+            btn.classList.remove('ch-drag-source');
+            return;
+          }
+
+          // Animate back to original position
+          ghost.style.transition = 'left 0.22s ease, top 0.22s ease, transform 0.22s ease';
+          ghost.style.left       = `${rect.left}px`;
+          ghost.style.top        = `${rect.top}px`;
+          ghost.style.transform  = 'scale(1)';
+          setTimeout(() => {
+            ghost.remove();
+            btn.classList.remove('ch-drag-source');
+          }, 240);
+        };
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup',   onUp);
+        onMove({ clientX: curX, clientY: curY });
+      }, 600);
     });
   }
 

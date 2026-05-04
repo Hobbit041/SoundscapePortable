@@ -75,6 +75,8 @@ function createWindow() {
 app.whenReady().then(() => {
   writeLog(`\n${'='.repeat(60)}\nSession started ${new Date().toISOString()}\n${'='.repeat(60)}`);
   createWindow();
+  // Restore renderer keyboard focus when the OS window regains focus
+  mainWindow.on('focus', () => mainWindow.webContents.focus());
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

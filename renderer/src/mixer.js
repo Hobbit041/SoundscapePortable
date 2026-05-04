@@ -466,6 +466,54 @@ export class Mixer {
     await Storage.setSoundscapes(soundscapes);
   }
 
+  async moveScene(from, insertBefore) {
+    const soundscapes = await Storage.getSoundscapes();
+    const ss = soundscapes[this.currentSoundscape];
+    if (!ss.scenes) return;
+    const n = ss.scenes.length;
+    if (from < 0 || from >= n || insertBefore < 0 || insertBefore > n) return;
+
+    const [moved] = ss.scenes.splice(from, 1);
+    let to = insertBefore > from ? insertBefore - 1 : insertBefore;
+    if (to < 0) to = 0;
+    if (to > ss.scenes.length) to = ss.scenes.length;
+    ss.scenes.splice(to, 0, moved);
+
+    let cur = ss.currentScene ?? 0;
+    if (cur === from)                          cur = to;
+    else if (from < cur && insertBefore > cur) cur--;
+    else if (from > cur && insertBefore <= cur) cur++;
+    ss.currentScene = cur;
+
+    soundscapes[this.currentSoundscape] = ss;
+    await Storage.setSoundscapes(soundscapes);
+    this.renderUI();
+  }
+
+  async moveSoundboardScene(from, insertBefore) {
+    const soundscapes = await Storage.getSoundscapes();
+    const ss = soundscapes[this.currentSoundscape];
+    if (!ss.sbScenes) return;
+    const n = ss.sbScenes.length;
+    if (from < 0 || from >= n || insertBefore < 0 || insertBefore > n) return;
+
+    const [moved] = ss.sbScenes.splice(from, 1);
+    let to = insertBefore > from ? insertBefore - 1 : insertBefore;
+    if (to < 0) to = 0;
+    if (to > ss.sbScenes.length) to = ss.sbScenes.length;
+    ss.sbScenes.splice(to, 0, moved);
+
+    let cur = ss.currentSbScene ?? 0;
+    if (cur === from)                          cur = to;
+    else if (from < cur && insertBefore > cur) cur--;
+    else if (from > cur && insertBefore <= cur) cur++;
+    ss.currentSbScene = cur;
+
+    soundscapes[this.currentSoundscape] = ss;
+    await Storage.setSoundscapes(soundscapes);
+    this.renderUI();
+  }
+
   // ─── Clear / reset ────────────────────────────────────────────────────────────
 
   async clearChannel(channelNr) {
