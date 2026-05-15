@@ -13,6 +13,7 @@ import { t }                      from './i18n.js';
 import { MissingFilesRegistry }  from './missingFilesRegistry.js';
 import { checkMissingFiles, MissingFilesDialog } from './missingFilesDialog.js';
 import { pathToUrl }              from './pathUtils.js';
+import { showConfirm, showAlert } from './dialog.js';
 
 const IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico', 'tiff', 'tif']);
 
@@ -745,39 +746,64 @@ export class MixerUI {
 
     const row = addBtn.parentElement;
 
-    // Remove existing scene buttons / edit wraps
-    row.querySelectorAll('.scene-btn, .scene-edit-wrap').forEach(el => el.remove());
+    // Remove edit wraps only — scene buttons are reused in-place so that
+    // CSS transitions fire correctly when the active scene changes.
+    row.querySelectorAll('.scene-edit-wrap').forEach(el => el.remove());
 
-    // Add scene buttons before the + button
+    // Index existing scene buttons by their scene index
+    const existing = new Map(
+      [...row.querySelectorAll('.scene-btn[data-scene-idx]')]
+        .map(b => [+b.dataset.sceneIdx, b])
+    );
+
     scenes.forEach((scene, idx) => {
-      const btn = document.createElement('button');
-      btn.className = 'scene-btn' + (idx === currentScene ? ' scene-active' : '');
-      btn.dataset.sceneIdx = idx;
-      btn.textContent = scene.name || t('scenes.defaultName', { n: idx + 1 });
+      const isActive = idx === currentScene;
+      const name = scene.name || t('scenes.defaultName', { n: idx + 1 });
+      let btn = existing.get(idx);
 
-      btn.addEventListener('click', () => {
-        const curIdx = this._currentSceneFromRow() ?? currentScene;
-        if (idx === curIdx) return;
-        // Visual transition: fade out current, illuminate target
-        document.querySelector('.scene-btn.scene-active')?.classList.add('scene-fading-out');
-        btn.classList.add('scene-pending-active');
-        this.mixer.switchScene(idx);
-      });
+      if (btn) {
+        existing.delete(idx);
+        btn.classList.toggle('scene-active', isActive);
+        btn.textContent = name;
+        btn.dataset.sceneName = name;
+      } else {
+        btn = document.createElement('button');
+        btn.dataset.sceneIdx  = idx;
+        btn.dataset.sceneName = name;
+        btn.className = 'scene-btn' + (isActive ? ' scene-active' : '');
+        btn.textContent = name;
 
-      btn.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        this._editScene(btn, idx, scene.name || t('scenes.defaultName', { n: idx + 1 }), scenes.length);
-      });
+        btn.addEventListener('click', () => {
+          const curIdx = this._currentSceneFromRow();
+          if (curIdx === null || idx === curIdx) return;
+          // Swap classes immediately so the CSS transition fires on click,
+          // not after the async switchScene IPC round-trips complete.
+          const curBtn = row.querySelector(`.scene-btn[data-scene-idx="${curIdx}"]`);
+          if (curBtn) curBtn.classList.remove('scene-active');
+          btn.classList.add('scene-active');
+          this.mixer.switchScene(idx);
+        });
 
-      this._bindSceneDrag(btn, idx, 'scene');
+        btn.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          const sceneCount = row.querySelectorAll('.scene-btn[data-scene-idx]').length;
+          this._editScene(btn, idx, btn.dataset.sceneName || t('scenes.defaultName', { n: idx + 1 }), sceneCount);
+        });
 
-      row.insertBefore(btn, addBtn);
+        this._bindSceneDrag(btn, idx, 'scene');
+        row.insertBefore(btn, addBtn);
+      }
     });
 
-    // Hide + button when at max
-    addBtn.style.display = scenes.length >= 16 ? 'none' : '';
+    // Remove buttons for deleted scenes
+    existing.forEach(btn => btn.remove());
 
-    // Re-inject scene MIDI controls if mapping mode is active
+    // Ensure DOM order matches scene index order after additions/removals
+    [...row.querySelectorAll('.scene-btn[data-scene-idx]')]
+      .sort((a, b) => +a.dataset.sceneIdx - +b.dataset.sceneIdx)
+      .forEach(btn => row.insertBefore(btn, addBtn));
+
+    addBtn.style.display = scenes.length >= 16 ? 'none' : '';
     if (this._mappingMode) this._injectSceneMappingControls();
   }
 
@@ -809,6 +835,7 @@ export class MixerUI {
     input.select();
 
     let trashClicked = false;
+    let cancelled = false;
 
     trash.addEventListener('mousedown', () => { trashClicked = true; });
 
@@ -818,9 +845,11 @@ export class MixerUI {
     });
 
     const finishEdit = async () => {
-      if (trashClicked) return;
-      const newName = input.value.trim() || t('scenes.defaultName', { n: idx + 1 });
-      await this.mixer.renameScene(idx, newName);
+      if (trashClicked) return;  // trash click handles its own re-render via removeScene → renderUI
+      if (!cancelled) {
+        const newName = input.value.trim() || t('scenes.defaultName', { n: idx + 1 });
+        await this.mixer.renameScene(idx, newName);
+      }
       // Re-render scenes only
       const soundscapes = await Storage.getSoundscapes();
       this._renderScenes(soundscapes[this.mixer.currentSoundscape]);
@@ -829,7 +858,7 @@ export class MixerUI {
     input.addEventListener('blur', finishEdit);
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter')  { input.blur(); }
-      if (e.key === 'Escape') { input.value = currentName; trashClicked = true; input.blur(); }
+      if (e.key === 'Escape') { cancelled = true; input.blur(); }
     });
   }
 
@@ -890,6 +919,7 @@ export class MixerUI {
     input.select();
 
     let trashClicked = false;
+    let cancelled = false;
 
     trash.addEventListener('mousedown', () => { trashClicked = true; });
 
@@ -898,9 +928,11 @@ export class MixerUI {
     });
 
     const finishEdit = async () => {
-      if (trashClicked) return;
-      const newName = input.value.trim() || t('scenes.sbDefaultName', { n: idx + 1 });
-      await this.mixer.renameSoundboardScene(idx, newName);
+      if (trashClicked) return;  // trash click handles its own re-render via removeSoundboardScene → renderUI
+      if (!cancelled) {
+        const newName = input.value.trim() || t('scenes.sbDefaultName', { n: idx + 1 });
+        await this.mixer.renameSoundboardScene(idx, newName);
+      }
       const soundscapes = await Storage.getSoundscapes();
       this._renderSbScenes(soundscapes[this.mixer.currentSoundscape]);
     };
@@ -908,7 +940,7 @@ export class MixerUI {
     input.addEventListener('blur', finishEdit);
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter')  { input.blur(); }
-      if (e.key === 'Escape') { input.value = currentName; trashClicked = true; input.blur(); }
+      if (e.key === 'Escape') { cancelled = true; input.blur(); }
     });
   }
 
@@ -1347,7 +1379,7 @@ export class MixerUI {
     });
 
     document.getElementById('ssListDel')?.addEventListener('click', async () => {
-      if (!confirm(t('profiles.deleteConfirm'))) return;
+      if (!await showConfirm(t('profiles.deleteConfirm'))) return;
       document.getElementById('ssListPanel')?.remove();
       this._ssOutsideOff?.();
       await this.mixer.removeSoundscape(this.mixer.currentSoundscape);
@@ -1704,7 +1736,7 @@ export class MixerUI {
   async _exportMidiMappings() {
     const mappings = this.midi?.getMappings() ?? {};
     if (!Object.keys(mappings).length) {
-      alert(t('midi.noMappingsAlert'));
+      await showAlert(t('midi.noMappingsAlert'));
       return;
     }
     await window.api.midi.saveMappings(mappings);
@@ -1776,7 +1808,7 @@ export class MixerUI {
 
     if (!silent && (entries.length > 0 || forceDialog)) {
       if (entries.length === 0) {
-        alert(t('missingFiles.noMissing'));
+        await showAlert(t('missingFiles.noMissing'));
         return;
       }
       new MissingFilesDialog(entries, {
@@ -1853,7 +1885,7 @@ export class MixerUI {
   async _exportProfiles() {
     const soundscapes = await Storage.getSoundscapes();
     if (!soundscapes.length) {
-      alert(t('settings.noProfilesAlert'));
+      await showAlert(t('settings.noProfilesAlert'));
       return;
     }
     await window.api.profiles.save(soundscapes);

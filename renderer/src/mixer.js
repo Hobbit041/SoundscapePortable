@@ -14,6 +14,34 @@ import {
   makeEmptySoundboardButton, makeEmptySoundboardArray
 } from './templates.js';
 
+const FADE_MS = 300;
+
+/**
+ * Fade an orphaned HTMLAudioElement to silence, then clean it up.
+ * Call this before nulling ch.audioElement / ch._audio so the old audio
+ * keeps playing during the crossfade while the new scene loads.
+ */
+function _fadeOrphan(el, node, ms) {
+  if (!el) return;
+  if (el.volume <= 0.001) {
+    el.pause();
+    el.src = '';
+    if (node) { try { node.disconnect(); } catch (_) {} }
+    return;
+  }
+  const step = 20;
+  const decrement = el.volume / Math.max(1, ms / step);
+  const timer = setInterval(() => {
+    el.volume = Math.max(0, el.volume - decrement);
+    if (el.volume <= 0.001) {
+      clearInterval(timer);
+      el.pause();
+      el.src = '';
+      if (node) { try { node.disconnect(); } catch (_) {} }
+    }
+  }, step);
+}
+
 export class Mixer {
   mixerSize  = 8;
   currentSoundscape = 0;
@@ -230,13 +258,24 @@ export class Mixer {
     const curIdx = ss.currentScene ?? 0;
     if (newSceneIdx === curIdx) return;
 
-    // Fade out both mixers
-    await this._sceneFadeOut();
-
-    // Stop everything
+    // Orphan Scene 1 music channels — capture refs and null them out so that
+    // the subsequent setData() → stop() calls don't touch the orphaned elements.
+    for (const ch of this.channels) {
+      _fadeOrphan(ch.audioElement, ch.node, FADE_MS);
+      ch.audioElement = undefined;
+      ch.node         = undefined;
+      ch.playing      = false;
+      ch.paused       = false;
+    }
     this.playing = false;
-    for (const ch of this.channels)            ch.stop(false);
-    for (const ch of this.ambientMixer.channels) ch.stop();
+
+    // Orphan Scene 1 ambient channels
+    for (const ch of this.ambientMixer.channels) {
+      _fadeOrphan(ch._audio, ch._source, FADE_MS);
+      ch._audio  = null;
+      ch._source = null;
+      ch.playing = false;
+    }
 
     // Save current working copy into current scene snapshot
     ss.scenes[curIdx].channels = structuredClone(ss.channels);
@@ -249,67 +288,35 @@ export class Mixer {
     soundscapes[this.currentSoundscape] = ss;
     await Storage.setSoundscapes(soundscapes);
 
-    // Reload audio
+    // Reload Scene 2 audio — stop() calls inside setData()/configure() are
+    // now no-ops because audioElement/_audio have already been nulled above.
     for (let i = 0; i < this.mixerSize; i++) {
       await this.channels[i].setData(ss.channels[i]);
     }
     this.ambientMixer.configure(ss);
 
-    // Fade in
-    this._sceneFadeIn(ss.master.settings.volume, ss.ambientMaster?.volume ?? 1);
-
-    // Only channels with autoPlay=true restart after scene switch
+    // Start Scene 2 autoPlay channels immediately (crossfade with fading orphans)
     const autoPlayChannels = this.channels.filter(
       ch => ch.settings?.autoPlay && ch.sourceArray?.length
     );
     if (autoPlayChannels.length) {
       this.playing = true;
       this.configureSolo();
-      setTimeout(() => { for (const ch of autoPlayChannels) ch.play(); }, 300);
+      for (const ch of autoPlayChannels) ch.play();
     }
 
-    // Ambient channels: only restart those with autoPlay=true
+    // Ambient autoPlay channels — start immediately for true crossfade
     for (let i = 0; i < this.ambientMixer.channelCount; i++) {
       const ambEntry = ss.ambient?.[i];
       if (ambEntry?.soundData?.autoPlay && this.ambientMixer.channels[i].sourceArray.length) {
         const ch = this.ambientMixer.channels[i];
-        setTimeout(() => {
-          ch.play();
-          const playEl = document.getElementById(`ambPlay-${i}`);
-          if (playEl) playEl.innerHTML = '<i class="fas fa-stop"></i>';
-        }, 200);
+        ch.play();
+        const playEl = document.getElementById(`ambPlay-${i}`);
+        if (playEl) playEl.innerHTML = '<i class="fas fa-stop"></i>';
       }
     }
 
     this.renderUI();
-  }
-
-  async _sceneFadeOut() {
-    const ctx = this.audioCtx;
-    this.master.effects.gain.node.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
-    this.ambientMixer.masterGain.gain.setTargetAtTime(0, ctx.currentTime, 0.3);
-    await new Promise(r => setTimeout(r, 1300));
-  }
-
-  _sceneFadeIn(masterVol, ambVol) {
-    const ctx = this.audioCtx;
-    const mGain = this.master.effects.gain.node.gain;
-    const aGain = this.ambientMixer.masterGain.gain;
-
-    mGain.cancelScheduledValues(ctx.currentTime);
-    mGain.setValueAtTime(0, ctx.currentTime);
-    aGain.cancelScheduledValues(ctx.currentTime);
-    aGain.setValueAtTime(0, ctx.currentTime);
-
-    const actualMaster = this.master.getMute() ? 0 : masterVol;
-    mGain.setTargetAtTime(actualMaster, ctx.currentTime, 0.3);
-    aGain.setTargetAtTime(ambVol, ctx.currentTime, 0.3);
-
-    // Restore internal tracking
-    setTimeout(() => {
-      this.master.effects.gain.gain = actualMaster;
-      this.ambientMixer.masterGain.gain.value = ambVol;
-    }, 1500);
   }
 
   async addScene() {
@@ -320,7 +327,7 @@ export class Mixer {
 
     ss.scenes.push({
       name:     `Scene ${ss.scenes.length + 1}`,
-      channels: structuredClone(ss.channels),
+      channels: makeEmptyChannelArray(MIXER_SIZE),
       ambient:  makeEmptyAmbientArray(AMBIENT_SIZE)
     });
     soundscapes[this.currentSoundscape] = ss;

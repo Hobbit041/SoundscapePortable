@@ -12,6 +12,7 @@ import { Pan }   from './Effects/pan.js';
 import { EQ }    from './Effects/eq.js';
 import { makeChannelSettings } from './templates.js';
 import { pathToUrl } from './pathUtils.js';
+import { showConfirm } from './dialog.js';
 
 const DEF_SOUNDDATA = Object.freeze({
   soundSelect: 'filepicker_single',
@@ -154,13 +155,13 @@ export class Channel {
   }
 
   async _promptRelink(originalPath) {
-    if (!confirm(`File not found:\n${originalPath}\n\nWould you like to locate it?`)) return null;
+    if (!await showConfirm(`File not found:\n${originalPath}\n\nWould you like to locate it?`)) return null;
     const paths = await window.api.fs.openDialog({});
     return paths?.[0] ?? null;
   }
 
   async _promptRelinkFolder(originalPath) {
-    if (!confirm(`Folder not found:\n${originalPath}\n\nWould you like to locate it?`)) return null;
+    if (!await showConfirm(`Folder not found:\n${originalPath}\n\nWould you like to locate it?`)) return null;
     const paths = await window.api.fs.openDialog({ folder: true });
     return paths?.[0] ?? null;
   }

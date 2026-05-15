@@ -8,6 +8,7 @@ import { Storage }        from './storage.js';
 import { PlaylistDialog } from './playlistDialog.js';
 import { t, tFileCount }  from './i18n.js';
 import { makeDraggable }  from './dragPanel.js';
+import { showConfirm }    from './dialog.js';
 
 export class ChannelConfigDialog {
   constructor(channel, mixer, channelNr) {
@@ -145,7 +146,7 @@ export class ChannelConfigDialog {
 
     // ── Reset ──
     document.getElementById(`chCfgReset-${i}`)?.addEventListener('click', async () => {
-      if (!confirm(t('channelConfig.clearConfirm'))) return;
+      if (!await showConfirm(t('channelConfig.clearConfirm'))) return;
       await this.mixer.clearChannel(i);
       document.dispatchEvent(new CustomEvent('playlist-changed', {
         detail: { panelId: `ch-${i}`, playlist: [] }

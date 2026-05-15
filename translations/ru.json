@@ -214,5 +214,10 @@
     "midiMappingFilter": "MIDI Mapping",
     "audioFilesFilter": "Аудиофайлы",
     "imageFilesFilter": "Файлы изображений"
+  },
+
+  "dialog": {
+    "ok": "ОК",
+    "cancel": "Отмена"
   }
 }

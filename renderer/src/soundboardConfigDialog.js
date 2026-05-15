@@ -9,6 +9,7 @@ import { PlaylistDialog } from './playlistDialog.js';
 import { t, tFileCount }  from './i18n.js';
 import { pathToUrl }      from './pathUtils.js';
 import { makeDraggable }  from './dragPanel.js';
+import { showConfirm }    from './dialog.js';
 
 export class SoundboardConfigDialog {
   constructor(soundboard, mixer, btnNr) {
@@ -148,7 +149,7 @@ export class SoundboardConfigDialog {
 
     // ── Reset ──
     document.getElementById(`sbCfgReset-${i}`)?.addEventListener('click', async () => {
-      if (!confirm(t('soundboardConfig.clearConfirm'))) return;
+      if (!await showConfirm(t('soundboardConfig.clearConfirm'))) return;
       await this.mixer.clearSoundboardButton(i);
       document.dispatchEvent(new CustomEvent('playlist-changed', {
         detail: { panelId: `sb-${i}`, playlist: [] }

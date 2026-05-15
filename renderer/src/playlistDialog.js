@@ -16,6 +16,7 @@ import { t }                      from './i18n.js';
 import { MissingFilesRegistry } from './missingFilesRegistry.js';
 import { pathToUrl }              from './pathUtils.js';
 import { makeDraggable }         from './dragPanel.js';
+import { showConfirm }           from './dialog.js';
 
 const AUDIO_EXT = new Set(['mp3', 'ogg', 'wav', 'flac', 'm4a', 'opus', 'webm']);
 
@@ -177,6 +178,43 @@ export class PlaylistDialog {
       listEl.appendChild(row);
     });
 
+    // Drop zone at end of list — allows reordering items to the very end
+    if (this.playlist.length > 0) {
+      const endZone = document.createElement('div');
+      endZone.className = 'pl-end-zone';
+      endZone.style.cssText = 'height:20px;width:100%';
+      endZone.addEventListener('dragover', e => {
+        if (this._dragSrcIdx === null) { e.preventDefault(); return; }
+        e.preventDefault();
+        e.stopPropagation();
+        document.querySelectorAll('.pl-row-over').forEach(el => el.classList.remove('pl-row-over'));
+        endZone.classList.add('pl-row-over');
+      });
+      endZone.addEventListener('dragleave', () => endZone.classList.remove('pl-row-over'));
+      endZone.addEventListener('drop', e => {
+        endZone.classList.remove('pl-row-over');
+        if (this._dragSrcIdx === null) { e.preventDefault(); return; }
+        e.preventDefault();
+        e.stopPropagation();
+        const from = this._dragSrcIdx;
+        this._dragSrcIdx = null;
+        if (this.selectedSet.size > 1 && this.selectedSet.has(from)) {
+          this._moveSelectedItems(this.playlist.length);
+        } else {
+          const trackedPath = this._trackedPlayingPath();
+          const [item] = this.playlist.splice(from, 1);
+          this.playlist.push(item);
+          const newIdx = this.playlist.length - 1;
+          this.selectedSet = new Set([newIdx]);
+          this._anchorIdx = newIdx;
+          if (this._mode !== 'soundboard') this.shuffle = true;
+          this._save(trackedPath);
+          this._renderList();
+        }
+      });
+      listEl.appendChild(endZone);
+    }
+
     this._updateToolbar();
     this._updatePlayingHighlight();
   }
@@ -263,7 +301,6 @@ export class PlaylistDialog {
   }
 
   _onRowDrop(e, toIdx) {
-    // OS file drop — prevent browser navigation but let it bubble to the wrap handler
     if (this._dragSrcIdx === null) {
       e.preventDefault();
       return;
@@ -272,8 +309,12 @@ export class PlaylistDialog {
     e.stopPropagation();
     const from = this._dragSrcIdx;
     this._dragSrcIdx = null;
-    if (from === toIdx) return;
-    this._moveItem(from, toIdx);
+    if (this.selectedSet.size > 1 && this.selectedSet.has(from)) {
+      this._moveSelectedItems(toIdx);
+    } else {
+      if (from === toIdx) return;
+      this._moveItem(from, toIdx);
+    }
   }
 
   // ── External drop (OS) ───────────────────────────────────────────────────────
@@ -312,7 +353,7 @@ export class PlaylistDialog {
 
     if (this._onClear) {
       this._q(`plClear-${id}`)?.addEventListener('click', async () => {
-        if (!confirm(t('playlist.clearConfirm'))) return;
+        if (!await showConfirm(t('playlist.clearConfirm'))) return;
         await this._onClear();
         document.dispatchEvent(new CustomEvent('playlist-changed', {
           detail: { panelId: this.panelId, playlist: [] }
@@ -406,9 +447,31 @@ export class PlaylistDialog {
   _moveItem(from, to) {
     const trackedPath = this._trackedPlayingPath();
     const [item] = this.playlist.splice(from, 1);
-    this.playlist.splice(to, 0, item);
-    this.selectedSet = new Set([to]);
-    this._anchorIdx  = to;
+    const insertAt = Math.min(to, this.playlist.length);
+    this.playlist.splice(insertAt, 0, item);
+    this.selectedSet = new Set([insertAt]);
+    this._anchorIdx  = insertAt;
+    if (this._mode !== 'soundboard') this.shuffle = true;
+    this._save(trackedPath);
+    this._renderList();
+  }
+
+  /** Move all selected rows to toIdx, preserving their relative order. */
+  _moveSelectedItems(toIdx) {
+    const selected = [...this.selectedSet].sort((a, b) => a - b);
+    const minSel = selected[0];
+    const maxSel = selected[selected.length - 1];
+    if (toIdx >= minSel && toIdx <= maxSel + 1) return;
+    const trackedPath = this._trackedPlayingPath();
+    const before = selected.filter(i => i < toIdx).length;
+    const adjustedTo = toIdx - before;
+    const items = selected.map(i => this.playlist[i]);
+    for (const i of [...selected].reverse()) {
+      this.playlist.splice(i, 1);
+    }
+    this.playlist.splice(adjustedTo, 0, ...items);
+    this.selectedSet = new Set(Array.from({ length: items.length }, (_, i) => adjustedTo + i));
+    this._anchorIdx = adjustedTo;
     if (this._mode !== 'soundboard') this.shuffle = true;
     this._save(trackedPath);
     this._renderList();
